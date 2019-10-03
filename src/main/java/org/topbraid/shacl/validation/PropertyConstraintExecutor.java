@@ -16,6 +16,7 @@
  */
 package org.topbraid.shacl.validation;
 
+import java.util.Arrays;
 import java.util.Collection;
 import java.util.LinkedList;
 import java.util.List;
@@ -35,6 +36,8 @@ class PropertyConstraintExecutor implements ConstraintExecutor {
 
 	@Override
 	public void executeConstraint(Constraint constraint, ValidationEngine engine, Collection<RDFNode> focusNodes) {
+		System.out.println("-| -| PropertyConstraintExecutor.executeConstraint(" + constraint.toString() + ", _, " + Arrays.toString(focusNodes.toArray()) + ") with value " + constraint.getParameterValue().toString());
+
 		Node propertyShape = constraint.getParameterValue().asNode();
 		if(constraint.getShapeResource().isPropertyShape()) {
 			for(RDFNode focusNode : focusNodes) {
@@ -57,6 +60,9 @@ class PropertyConstraintExecutor implements ConstraintExecutor {
 			}
 		}
 		try {
+			System.out.println("-| -| -> executeHelper(_, " + Arrays.toString(valueNodes.toArray()) + ", " + (propertyShape.isBlank() ? propertyShape.getBlankNodeLabel() : propertyShape.toString()) +")");
+			System.out.println("-| -| -| -> engine.validateNodesAgainstShape()");
+
 			engine.validateNodesAgainstShape(doNodes, propertyShape);
 		}
 		finally {

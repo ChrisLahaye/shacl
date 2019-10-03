@@ -17,6 +17,7 @@
 package org.topbraid.shacl.validation;
 
 import java.net.URI;
+import java.util.Arrays;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.HashSet;
@@ -364,6 +365,8 @@ public class ValidationEngine extends AbstractEngine implements ConfigurableEngi
 					focusNodes = filteredFocusNodes;
 				}
 				if(!focusNodes.isEmpty()) {
+					System.out.println("Shape " + (++i) + ": " + getLabelFunction().apply(shape.getShapeResource()));
+
 					for(Constraint constraint : shape.getConstraints()) {
 						validateNodesAgainstConstraint(focusNodes, constraint);
 					}
@@ -430,6 +433,8 @@ public class ValidationEngine extends AbstractEngine implements ConfigurableEngi
 				ValidationEngine oldEngine = current.get();
 				current.set(this);
 				try {
+					System.out.println();
+
 					for(Constraint constraint : vs.getConstraints()) {
 						validateNodesAgainstConstraint(focusNodes, constraint);
 					}
@@ -484,9 +489,13 @@ public class ValidationEngine extends AbstractEngine implements ConfigurableEngi
 		if(configuration != null && configuration.isSkippedConstraintComponent(constraint.getComponent())) {
 			return;
 		}
-		
+
+		System.out.println("-> validateNodesAgainstConstraint(" + Arrays.toString(focusNodes.toArray()) + ", " + constraint.toString() + ")");
+
 		ConstraintExecutor executor = constraint.getExecutor();
 		if(executor != null) {
+			System.out.println("-| -> executor = constraint.getExecutor() = " + executor.toString());
+
 			if(SHACLPreferences.isProduceFailuresMode()) {
 				try {
 					executor.executeConstraint(constraint, this, focusNodes);
@@ -497,12 +506,16 @@ public class ValidationEngine extends AbstractEngine implements ConfigurableEngi
 				}
 			}
 			else {
+				System.out.println("-| -> executor.executeConstraint()");
+
 				executor.executeConstraint(constraint, this, focusNodes);
 			}
 		}
 		else {
 			FailureLog.get().logWarning("No suitable validator found for constraint " + constraint);
 		}
+
+		System.out.println();
 	}
 
 

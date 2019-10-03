@@ -40,7 +40,9 @@ public class SPARQLConstraintExecutor extends AbstractSPARQLExecutor {
 	
 	public SPARQLConstraintExecutor(Constraint constraint) {
 		super(constraint);
-		
+
+		System.out.println("new SPARQLConstraintExecutor : AbstractSPARQLExecutor");
+
 		Set<String> preBoundVars = new HashSet<>();
 		preBoundVars.add(SH.thisVar.getVarName());
 		preBoundVars.add(SH.shapesGraphVar.getVarName());

@@ -75,7 +75,6 @@ public class ConstraintExecutors {
 	
 	
 	public ConstraintExecutor getExecutor(Constraint constraint) {
-
 		Function<Constraint,ConstraintExecutor> special = specialExecutors.get(constraint.getComponent());
 		if(special != null) {
 			return special.apply(constraint);

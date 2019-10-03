@@ -83,7 +83,10 @@ public abstract class AbstractSPARQLExecutor implements ConstraintExecutor {
 	
 	@Override
 	public void executeConstraint(Constraint constraint, ValidationEngine engine, Collection<RDFNode> focusNodes) {
-		
+		System.out.println("-| -| AbstractSPARQLExecutor.executeConstraint(" + constraint.toString() + ")");
+		System.out.println(">>>>> AbstractSPARQLExecutor.executeConstraint(" + constraint.toString() + ")");
+		System.out.println(constraint.getShapeResource().getURI());
+
 		QuerySolutionMap bindings = new QuerySolutionMap();
 		addBindings(constraint, bindings);
 		bindings.add(SH.currentShapeVar.getVarName(), constraint.getShapeResource());
@@ -112,7 +115,17 @@ public abstract class AbstractSPARQLExecutor implements ConstraintExecutor {
 				QueryExecution qexec = SPARQLSubstitutions.createQueryExecution(query, engine.getDataset(), bindings);
 				executeSelectQuery(engine, constraint, messageHolder, nestedResults, focusNode, qexec, bindings);
 				engine.checkCanceled();
-			}			
+			}
+
+			Iterator<String> varNamesx = bindings.varNames();
+			if(varNamesx.hasNext()) {
+				queryString += "\nBindings:";
+				while(varNamesx.hasNext()) {
+					String varName = varNamesx.next();
+					queryString += "\n- ?" + varName + ": " + bindings.get(varName);
+				}
+			}
+
 			if(ExecStatisticsManager.get().isRecording()) {
 				long endTime = System.currentTimeMillis();
 				long duration = endTime - startTime;
@@ -133,6 +146,10 @@ public abstract class AbstractSPARQLExecutor implements ConstraintExecutor {
 			HasShapeFunction.setShapesGraph(oldShapesGraph, oldShapesGraphURI);
 			HasShapeFunction.setResultsModel(oldNestedResults);
 		}
+
+		System.out.println("Query:");
+		System.out.println(queryString);
+		System.out.println("<<<<< AbstractSPARQLExecutor.executeConstraint(" + constraint.toString() + ")");
 	}
 
 	
@@ -155,7 +172,9 @@ public abstract class AbstractSPARQLExecutor implements ConstraintExecutor {
 
 	private void executeSelectQuery(ValidationEngine engine, Constraint constraint, Resource messageHolder, Model nestedResults,
 			RDFNode focusNode, QueryExecution qexec, QuerySolution bindings) {
-		
+		System.out.println(">>>>>>>> AbstractSPARQLExecutor.executeSelectQuery");
+		System.out.println(qexec.getQuery().toString());
+
 		ResultSet rs = qexec.execSelect();
 		
 		if(!rs.getResultVars().contains("this")) {
@@ -168,6 +187,9 @@ public abstract class AbstractSPARQLExecutor implements ConstraintExecutor {
 				while(rs.hasNext()) {
 					QuerySolution sol = rs.next();
 					RDFNode thisValue = sol.get(SH.thisVar.getVarName());
+					System.out.println("Solution:");
+					sol.varNames().forEachRemaining(z -> { System.out.println(z + " = " + sol.get(z)); });
+
 					if(thisValue != null) {
 						Resource resultType = SH.ValidationResult;
 						RDFNode selectMessage = sol.get(SH.message.getLocalName());
@@ -242,6 +264,9 @@ public abstract class AbstractSPARQLExecutor implements ConstraintExecutor {
 		}
 		finally {
 			qexec.close();
+
+			System.out.println("<<<<<<< AbstractSPARQLExecutor.executeSelectQuery");
+			System.out.flush();
 		}
 	}
 

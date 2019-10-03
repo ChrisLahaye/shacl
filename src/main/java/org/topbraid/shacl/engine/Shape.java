@@ -138,13 +138,23 @@ public class Shape {
 	
 	public Iterable<Constraint> getConstraints() {
 		if(constraints == null) {
+			System.out.println("-> getConstraints()");
+
 			constraints = new LinkedList<>();
 			Set<SHConstraintComponent> handled = new HashSet<>();
+
+			String shapeName = (shape.isAnon() ? shape.asNode().getBlankNodeLabel() : shape.toString());
+			System.out.println("-| forall (" + shapeName + ", *, *)");
+
 			for(Statement s : shape.listProperties().toList()) {
+				System.out.println("-|   (" + shapeName + ", " + s.getPredicate() + ", " + s.getObject() + ")");
+
 				SHConstraintComponent component = shapesGraph.getComponentWithParameter(s.getPredicate());
 				if(component != null && !handled.contains(component)) {
 					List<SHParameter> params = component.getParameters();
 					if(params.size() == 1) {
+						System.out.println("-|   new Constraint(this, " + component.getURI() +", params, " + s.getObject() +")");
+
 						Constraint constraint = new Constraint(this, component, params, s.getObject());
 						if(!shapesGraph.isIgnoredConstraint(constraint)) {
 							constraints.add(constraint);
@@ -158,6 +168,8 @@ public class Shape {
 						}
 					}
 				}
+
+				System.out.println("-|");
 			}
 		}
 		return constraints;

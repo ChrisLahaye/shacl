@@ -84,13 +84,24 @@ public class ShapesGraph {
 	
 	public SHConstraintComponent getComponentWithParameter(Property parameter) {
 		return parametersMap.computeIfAbsent(parameter, p -> {
+			System.out.println("-|   -> component = getComponentWithParameter(" + parameter.getURI() + ")");
+			System.out.println("-|   -| forall (*, sh:path, " + parameter.getURI() + ")");
+
 			StmtIterator it = shapesModel.listStatements(null, SH.path, parameter);
 			while(it.hasNext()) {
 				Resource param = it.next().getSubject();
+
+				System.out.println("-|   -|   (" + param.getURI() +", sh:path, " + parameter.getURI() + ")");
+
 				if(!param.hasProperty(SH.optional, JenaDatatypes.TRUE)) {
+					System.out.println("-|   -|   forall (*, sh:parameter, " + param.getURI() + ")");
+
 					StmtIterator i2 = shapesModel.listStatements(null, SH.parameter, param);
 					while(i2.hasNext()) {
 						Resource r = i2.next().getSubject();
+
+						System.out.println("-|   -|     (" + r.getURI() +", sh:parameter, " + param.getURI() + ")");
+
 						if(JenaUtil.hasIndirectType(r, SH.ConstraintComponent)) {
 							i2.close();
 							it.close();

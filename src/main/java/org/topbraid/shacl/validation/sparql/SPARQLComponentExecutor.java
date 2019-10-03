@@ -34,7 +34,7 @@ public class SPARQLComponentExecutor extends AbstractSPARQLExecutor {
 	
 	public SPARQLComponentExecutor(Constraint constraint) {
 		super(constraint);
-		
+		System.out.println("-| -| new SPARQLComponentExecutor(" + constraint.toString() +")");
 		if(!SH.NS.equals(constraint.getComponent().getNameSpace())) {
 			Set<String> preBoundVars = new HashSet<>();
 			for(SHParameter param : constraint.getComponent().getParameters()) {
