@@ -136,7 +136,7 @@ public class Shape {
 	}
 	
 	
-	public Iterable<Constraint> getConstraints() {
+	public List<Constraint> getConstraints() {
 		if(constraints == null) {
 			System.out.println("-> getConstraints()");
 

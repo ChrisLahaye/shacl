@@ -1,0 +1,16 @@
+@prefix ex: <http://example.org#> .
+@prefix sh: <http://www.w3.org/ns/shacl#> .
+
+@prefix ex: <http://example.org#> .
+@prefix sh: <http://www.w3.org/ns/shacl#> .
+
+ex:LessThanExampleShape
+	a sh:NodeShape ;
+        sh:targetNode ex:v0 ;
+	sh:property [
+		sh:path ex:P ;
+		sh:lessThan ex:Q ;
+	] .
+
+ex:v0 ex:P 30 .
+ex:v0 ex:Q 20 .

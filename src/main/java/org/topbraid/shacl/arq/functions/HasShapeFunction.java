@@ -26,6 +26,7 @@ import org.apache.jena.rdf.model.Model;
 import org.apache.jena.rdf.model.ModelFactory;
 import org.apache.jena.rdf.model.RDFNode;
 import org.apache.jena.rdf.model.Resource;
+import org.apache.jena.rdf.model.Statement;
 import org.apache.jena.sparql.core.DatasetImpl;
 import org.apache.jena.sparql.expr.ExprEvalException;
 import org.apache.jena.sparql.expr.NodeValue;
@@ -41,6 +42,7 @@ import org.topbraid.shacl.validation.DefaultShapesGraphProvider;
 import org.topbraid.shacl.validation.ValidationEngine;
 import org.topbraid.shacl.validation.ValidationEngineFactory;
 import org.topbraid.shacl.vocabulary.DASH;
+import org.topbraid.shacl.vocabulary.RSH;
 import org.topbraid.shacl.vocabulary.SH;
 
 /**
@@ -91,7 +93,8 @@ public class HasShapeFunction extends AbstractFunction3 {
 	
 	
 	public static NodeValue exec(Node focusNode, Node shapeNode, Node recursionIsError, Graph activeGraph, Dataset dataset) {
-		System.out.println("> HasShapeFuntion.exec(" + focusNode.getURI() + ", " + shapeNode.getURI() +")");
+		String shapeName = shapeNode.isBlank() ? shapeNode.getBlankNodeLabel() : shapeNode.getURI();
+		System.out.println("> HasShapeFuntion.exec(" + focusNode + ", " + shapeName +")");
 
 		Boolean oldFlag = recursionIsErrorFlag.get();
 		if(JenaDatatypes.TRUE.asNode().equals(recursionIsError)) {
@@ -128,6 +131,16 @@ public class HasShapeFunction extends AbstractFunction3 {
 						throw new ExprEvalException("Propagating failure from nested shapes");
 					}
 
+					if (ValidationEngine.getCurrent() != null && ValidationEngine.getCurrent().getAssignment() != null) {
+						for(Statement it : results.listStatements().toList()) {
+							if (it.getPredicate().getNameSpace().equals(RSH.NS)) {
+								ValidationEngine.getCurrent().getReport().getModel().add(it);
+							}
+						}
+
+						return NodeValue.FALSE;
+					}
+
 					if(ValidationEngine.getCurrent() != null && ValidationEngine.getCurrent().getConfiguration().getReportDetails()) {
 						boolean result = true;
 						for(Resource r : results.listSubjectsWithProperty(RDF.type, SH.ValidationResult).toList()) {
@@ -151,7 +164,7 @@ public class HasShapeFunction extends AbstractFunction3 {
 		finally {
 			recursionIsErrorFlag.set(oldFlag);
 
-			System.out.println("< HasShapeFuntion.exec(" + focusNode.getURI() + ", " + shapeNode.getURI() +")");
+			System.out.println("< HasShapeFuntion.exec(" + focusNode + ", " + shapeName +")");
 		}
 	}
 
@@ -171,6 +184,7 @@ public class HasShapeFunction extends AbstractFunction3 {
 		}
 		ValidationEngine engine = ValidationEngineFactory.get().create(dataset, sgURI, sg, null);
 		if(ValidationEngine.getCurrent() != null) {
+			engine.setAssignment(ValidationEngine.getCurrent().getAssignment());
 			engine.setConfiguration(ValidationEngine.getCurrent().getConfiguration());
 		}
 		return engine.

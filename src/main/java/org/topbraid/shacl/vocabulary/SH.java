@@ -314,6 +314,8 @@ public class SH {
 
     public final static Property value = ResourceFactory.createProperty(NS + "value");
 
+    public final static Property xone = ResourceFactory.createProperty(NS + "xone");
+
     public final static Property zeroOrMorePath = ResourceFactory.createProperty(NS + "zeroOrMorePath");
 
     public final static Property zeroOrOnePath = ResourceFactory.createProperty(NS + "zeroOrOnePath");

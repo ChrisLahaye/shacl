@@ -20,6 +20,7 @@ import java.net.URI;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.Collections;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Iterator;
 import java.util.LinkedList;
@@ -105,6 +106,8 @@ public class ValidationEngine extends AbstractEngine implements ConfigurableEngi
 	private Map<ValueNodesCacheKey,Collection<RDFNode>> valueNodes = new WeakHashMap<>();
 	
 	private int violationsCount = 0;
+
+	private HashMap<RDFNode, HashMap<RDFNode, Boolean>> assignment;
 	
 
 	/**
@@ -433,7 +436,7 @@ public class ValidationEngine extends AbstractEngine implements ConfigurableEngi
 				ValidationEngine oldEngine = current.get();
 				current.set(this);
 				try {
-					System.out.println();
+					System.out.println("validateNodesAgainstShape(" + Arrays.toString(focusNodes.toArray()) +", " + shape +")");
 
 					for(Constraint constraint : vs.getConstraints()) {
 						validateNodesAgainstConstraint(focusNodes, constraint);
@@ -518,6 +521,13 @@ public class ValidationEngine extends AbstractEngine implements ConfigurableEngi
 		System.out.println();
 	}
 
+	public void setAssignment(HashMap<RDFNode, HashMap<RDFNode, Boolean>> assignment) {
+		this.assignment = assignment;
+	}
+
+	public HashMap<RDFNode, HashMap<RDFNode, Boolean>> getAssignment() {
+		return assignment;
+	}
 
 	@Override
 	public ValidationEngineConfiguration getConfiguration() {

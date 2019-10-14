@@ -1,0 +1,17 @@
+@prefix ex: <http://example.org#> .
+@prefix sh: <http://www.w3.org/ns/shacl#> .
+
+ex:s0
+        a sh:NodeShape ;
+        sh:targetNode ex:v0 ;
+        sh:property [
+          sh:path [ sh:oneOrMorePath ex:P ];
+          sh:disjoint ex:Q ;
+        ] .
+
+ex:v0 ex:P ex:va .
+  ex:v0 ex:P ex:vb .
+  ex:v0 ex:P ex:vc .
+  ex:v0 ex:Q ex:va1 .
+  ex:v0 ex:Q ex:vb2 .
+  ex:v0 ex:Q ex:vc .

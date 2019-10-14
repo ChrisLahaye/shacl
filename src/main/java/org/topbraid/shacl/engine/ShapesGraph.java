@@ -28,9 +28,14 @@ import java.util.function.Predicate;
 import org.apache.jena.graph.Node;
 import org.apache.jena.rdf.model.Model;
 import org.apache.jena.rdf.model.Property;
+import org.apache.jena.rdf.model.RDFList;
 import org.apache.jena.rdf.model.RDFNode;
 import org.apache.jena.rdf.model.Resource;
+import org.apache.jena.rdf.model.ResourceFactory;
+import org.apache.jena.rdf.model.Statement;
 import org.apache.jena.rdf.model.StmtIterator;
+import org.apache.jena.util.iterator.ExtendedIterator;
+import org.apache.jena.vocabulary.RDF;
 import org.apache.jena.vocabulary.RDFS;
 import org.topbraid.jenax.util.JenaDatatypes;
 import org.topbraid.jenax.util.JenaUtil;
@@ -41,6 +46,7 @@ import org.topbraid.shacl.expr.lib.UnionExpression;
 import org.topbraid.shacl.model.SHConstraintComponent;
 import org.topbraid.shacl.model.SHFactory;
 import org.topbraid.shacl.model.SHShape;
+import org.topbraid.shacl.util.SHACLSystemModel;
 import org.topbraid.shacl.vocabulary.DASH;
 import org.topbraid.shacl.vocabulary.SH;
 
@@ -64,6 +70,10 @@ public class ShapesGraph {
 	
 	private List<Shape> rootShapes;
 	
+	private List<Shape> nodeShapes;
+
+	private Map<Shape, List<Shape>> shapeDependencies = new HashMap<Shape, List<Shape>>();
+
 	private Predicate<SHShape> shapeFilter;
 	
 	private Map<Node,Shape> shapesMap = new ConcurrentHashMap<>();
@@ -72,6 +82,49 @@ public class ShapesGraph {
 	
 	private Map<Node,Map<Node,NodeExpression>> valuesMap = new ConcurrentHashMap<>();
 
+	public boolean isShapeCyclic(Shape shape) {
+		return isShapeCyclic(shape, shape, new HashSet<Shape>());
+	}
+
+	public boolean isShapeCyclic(Shape start, Shape shape, Set<Shape> visited) {
+		if (visited.contains(shape)) {
+			if (start.equals(shape)) {
+				return true;
+			}
+
+			return false;
+		}
+
+		visited.add(shape);
+
+		for (Shape next : getShapeDirectDependencies(shape)) {
+			if (isShapeCyclic(start, next, visited)) {
+				return true;
+			}
+		}
+
+		visited.remove(shape);
+
+		return false;
+	}
+
+	public List<Shape> getShapeDependencies(Shape shape) {
+		HashSet<Shape> visited = new HashSet<Shape>();
+
+		getShapeDependencies(shape, visited);
+
+		return new LinkedList<Shape>(visited);
+	}
+
+	public void getShapeDependencies(Shape shape, Set<Shape> visited) {
+		visited.add(shape);
+
+		for (Shape next : getShapeDirectDependencies(shape)) {
+			if (!visited.contains(next)) {
+				getShapeDependencies(next, visited);
+			}
+		}
+	}
 	
 	/**
 	 * Constructs a new ShapesGraph.
@@ -153,6 +206,113 @@ public class ShapesGraph {
 		return rootShapes;
 	}
 	
+	private List<Shape> getShapeDirectDependencies(Shape shape) {
+		if (shapeDependencies.containsKey(shape)) {
+			return shapeDependencies.get(shape);
+		}
+
+		Set<Resource> candidates = new HashSet<>();
+
+		for (Property parameter : new Property[] {SH.not, SH.property, SH.qualifiedValueShape, SH.node}) {
+			StmtIterator it = shape.getShapeResource().listProperties(parameter);
+
+			for (Statement z : it.toList()) {
+				candidates.add(z.getObject().asResource());
+			}
+		}
+
+		for (Property parameter : new Property[] {SH.and, SH.or, SH.xone}) {
+			StmtIterator it = shape.getShapeResource().listProperties(parameter);
+
+			for (Statement z : it.toList()) {
+				RDFList list = z.getObject().as(RDFList.class);
+				ExtendedIterator<RDFNode> sit = list.iterator();
+
+				candidates.addAll(sit.mapWith(n -> n.asResource()).toList());
+			}
+		}
+
+		LinkedList<Shape> refs = new LinkedList<Shape>();
+
+		for (Resource candidate : candidates) {
+			SHShape shapeResource = SHFactory.asShape(candidate);
+
+			if(!shapeResource.isDeactivated() && !isIgnored(shapeResource.asNode())) {
+				Shape q = getShape(shapeResource.asNode());
+
+				if (q.isNodeShape()) {
+					refs.add(q);
+				} else {
+					refs.addAll(getShapeDirectDependencies(q));
+				}
+			}
+		}
+
+		shapeDependencies.put(shape, refs);
+
+		return refs;
+	}
+
+	public List<Shape> getNodeShapes() {
+		if (nodeShapes != null) {
+			return nodeShapes;
+		}
+
+		// A shape is an IRI or blank node s that fulfills at least one of the following conditions in the shapes graph:
+		Set<Resource> candidates = new HashSet<>();
+
+		//	s is a SHACL instance of sh:NodeShape or sh:PropertyShape.
+		candidates.addAll(JenaUtil.getAllInstances(shapesModel.getResource(SH.NodeShape.getURI())));
+
+		//	s is subject of a triple that has sh:targetClass, sh:targetNode, sh:targetObjectsOf or sh:targetSubjectsOf as predicate.
+		candidates.addAll(shapesModel.listSubjectsWithProperty(SH.targetClass).toList());
+		candidates.addAll(shapesModel.listSubjectsWithProperty(SH.targetNode).toList());
+		candidates.addAll(shapesModel.listSubjectsWithProperty(SH.targetObjectsOf).toList());
+		candidates.addAll(shapesModel.listSubjectsWithProperty(SH.targetSubjectsOf).toList());
+
+		//	s is subject of a triple that has a parameter as predicate.
+		for (Resource parameter :  SHACLSystemModel.getSHACLModel().listSubjectsWithProperty(RDF.type, SH.Parameter).toList()) {
+			StmtIterator it = parameter.listProperties(SH.path);
+
+			if (it.hasNext()) {
+				String uri = it.next().getObject().asNode().getURI();
+
+				candidates.addAll(shapesModel.listSubjectsWithProperty(ResourceFactory.createProperty(uri)).toList());
+			}
+		}
+
+		//	s is a value of a shape-expecting, non-list-taking parameter such as sh:node, or a member of a SHACL list that is a value of a shape-expecting and list-taking parameter such as sh:or.
+		for (Property parameter : new Property[] {SH.not, SH.qualifiedValueShape, SH.node}) {
+			candidates.addAll(shapesModel.listObjectsOfProperty(parameter).mapWith(n -> n.asResource()).toList());
+		}
+
+		for (Property parameter : new Property[] {SH.and, SH.or, SH.xone}) {
+			for (RDFNode node : shapesModel.listObjectsOfProperty(parameter).toList()) {
+				RDFList list = node.as(RDFList.class);
+				ExtendedIterator<RDFNode> sit = list.iterator();
+
+				candidates.addAll(sit.mapWith(n -> n.asResource()).toList());
+			}
+		}
+
+		// A node shape is a shape in the shapes graph that is not the subject of a triple with sh:path as its predicate. 
+		candidates.removeAll(shapesModel.listSubjectsWithProperty(SH.path).toList());
+
+		// Turn the shape Resource objects into Shape instances
+		nodeShapes = new LinkedList<Shape>();
+
+		for(Resource candidate : candidates) {
+			SHShape shapeResource = SHFactory.asShape(candidate);
+
+			if(!shapeResource.isDeactivated() && !isIgnored(shapeResource.asNode())) {
+				Shape shape = getShape(shapeResource.asNode());
+
+				nodeShapes.add(shape);
+			}
+		}
+
+		return nodeShapes;
+	}
 	
 	public Shape getShape(Node node) {
 		return shapesMap.computeIfAbsent(node, n -> new Shape(this, SHFactory.asShape(shapesModel.asRDFNode(node))));

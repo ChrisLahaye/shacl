@@ -16,15 +16,20 @@
  */
 package org.topbraid.shacl.validation;
 
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.LinkedList;
 import java.util.List;
 
 import org.apache.jena.graph.Node;
+import org.apache.jena.rdf.model.Model;
 import org.apache.jena.rdf.model.RDFNode;
+import org.apache.jena.rdf.model.Statement;
 import org.topbraid.shacl.engine.Constraint;
+import org.topbraid.shacl.model.SHShape;
 import org.topbraid.shacl.util.RecursionGuard;
+import org.topbraid.shacl.vocabulary.RSH;
 
 /**
  * Implements the special handling of sh:property by recursively calling the validator
@@ -38,37 +43,37 @@ class PropertyConstraintExecutor implements ConstraintExecutor {
 	public void executeConstraint(Constraint constraint, ValidationEngine engine, Collection<RDFNode> focusNodes) {
 		System.out.println("-| -| PropertyConstraintExecutor.executeConstraint(" + constraint.toString() + ", _, " + Arrays.toString(focusNodes.toArray()) + ") with value " + constraint.getParameterValue().toString());
 
-		Node propertyShape = constraint.getParameterValue().asNode();
-		if(constraint.getShapeResource().isPropertyShape()) {
-			for(RDFNode focusNode : focusNodes) {
-				Collection<RDFNode> valueNodes = engine.getValueNodes(constraint, focusNode);
-				executeHelper(engine, valueNodes, propertyShape);
-				engine.checkCanceled();
-			}
+		SHShape shape = constraint.getShapeResource();
+		SHShape propertyShape = engine.getShapesGraph().getShape(constraint.getParameterValue().asNode()).getShapeResource();
+		if(shape.isPropertyShape()) {
+			throw new RuntimeException("PropertyConstraintExecutor defined by property shape");
+
+//			for(RDFNode focusNode : focusNodes) {
+//				Collection<RDFNode> valueNodes = engine.getValueNodes(constraint, focusNode);
+//				executeHelper(engine, valueNodes, propertyShape.asNode());
+//				engine.checkCanceled();
+//			}
 		}
 		else {
-			executeHelper(engine, focusNodes, propertyShape);
+			executeHelper(engine, focusNodes, propertyShape.asNode());
+		}
+
+		Model report = engine.getReport().getModel();
+
+		for (RDFNode focusNode : focusNodes) {
+			for (Statement it : report.listStatements(propertyShape, null, focusNode).toList()) {
+				if (it.getPredicate().getNameSpace().equals(RSH.NS)) {
+					report.add(shape, it.getPredicate(), focusNode);
+				}
+			}
 		}
 	}
 
-	
-	private void executeHelper(ValidationEngine engine, Collection<RDFNode> valueNodes, Node propertyShape) {
-		List<RDFNode> doNodes = new LinkedList<>();
-		for(RDFNode focusNode : valueNodes) {
-			if(!RecursionGuard.start(focusNode.asNode(), propertyShape)) {
-				doNodes.add(focusNode);
-			}
-		}
-		try {
-			System.out.println("-| -| -> executeHelper(_, " + Arrays.toString(valueNodes.toArray()) + ", " + (propertyShape.isBlank() ? propertyShape.getBlankNodeLabel() : propertyShape.toString()) +")");
-			System.out.println("-| -| -| -> engine.validateNodesAgainstShape()");
 
-			engine.validateNodesAgainstShape(doNodes, propertyShape);
-		}
-		finally {
-			for(RDFNode valueNode : doNodes) {
-				RecursionGuard.end(valueNode.asNode(), propertyShape);
-			}
-		}
+	private void executeHelper(ValidationEngine engine, Collection<RDFNode> valueNodes, Node propertyShape) {
+		System.out.println("-| -| -> executeHelper(_, " + Arrays.toString(valueNodes.toArray()) + ", " + (propertyShape.isBlank() ? propertyShape.getBlankNodeLabel() : propertyShape.toString()) +")");
+		System.out.println("-| -| -| -> engine.validateNodesAgainstShape()");
+
+		engine.validateNodesAgainstShape(new ArrayList<RDFNode>(valueNodes), propertyShape);
 	}
 }

@@ -32,7 +32,7 @@ public class ValidationExample {
 		
 		// Load the main data model
 		Model dataModel = JenaUtil.createMemoryModel();
-		dataModel.read(ValidationExample.class.getResourceAsStream("/sh/tests/core/property/class-001.test.ttl"), "urn:dummy", FileUtils.langTurtle);
+		dataModel.read(ValidationExample.class.getResourceAsStream("/sh/tests/custom/example-088.test.ttl"), "urn:dummy", FileUtils.langTurtle);
 		
 		// Perform the validation of everything, using the data model
 		// also as the shapes model - you may have them separated
