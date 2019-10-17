@@ -58,12 +58,14 @@ class PropertyConstraintExecutor implements ConstraintExecutor {
 			executeHelper(engine, focusNodes, propertyShape.asNode());
 		}
 
-		Model report = engine.getReport().getModel();
+		if (engine.getAssignment() != null) {
+			Model report = engine.getReport().getModel();
 
-		for (RDFNode focusNode : focusNodes) {
-			for (Statement it : report.listStatements(propertyShape, null, focusNode).toList()) {
-				if (it.getPredicate().getNameSpace().equals(RSH.NS)) {
-					report.add(shape, it.getPredicate(), focusNode);
+			for (RDFNode focusNode : focusNodes) {
+				for (Statement it : report.listStatements(propertyShape, null, focusNode).toList()) {
+					if (it.getPredicate().getNameSpace().equals(RSH.NS)) {
+						report.add(shape, it.getPredicate(), focusNode);
+					}
 				}
 			}
 		}
