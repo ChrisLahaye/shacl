@@ -62,9 +62,7 @@ public abstract class AbstractNativeConstraintExecutor implements ConstraintExec
 			HashMap<RDFNode, HashMap<RDFNode, Boolean>> assignment = new HashMap<RDFNode, HashMap<RDFNode, Boolean>>();
 
 			List<Shape> fpShapes = engine.getShapesGraph().getShapeDependencies(shape);
-			List<RDFNode> fpNodes = engine.getDataset().getUnionModel().listObjects()
-					.filterKeep(f -> f.isURIResource() && f.asNode().getURI().startsWith("http://example.org#v"))
-					.toList();
+			List<RDFNode> fpNodes = engine.getReachableNodes(valueNode);
 
 			fpNodes.forEach(fpNode -> {
 				if (!assignment.containsKey(fpNode)) {

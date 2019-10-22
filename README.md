@@ -4,12 +4,7 @@
 
 Can be used to perform SHACL constraint checking and rule inferencing in any Jena-based Java application.
 
-## Assumptions
-Recursion is supported under the following assumptions:
-1. Strictly stratified shapes
-2. Node URI prefix of `http://example.org#v`
-
-An open question is how to select nodes that will be assigned recursive shapes in the fixed-point algorithm. Currently it only considers nodes with the prefix `http://example.org#v`.
+The set of shapes must be strictly stratified.
 
 ## Command Line Usage
 

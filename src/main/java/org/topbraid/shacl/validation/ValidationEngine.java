@@ -265,6 +265,23 @@ public class ValidationEngine extends AbstractEngine implements ConfigurableEngi
 		}
 	}
 
+	public List<RDFNode> getReachableNodes(RDFNode node) {
+		HashSet<RDFNode> visited = new HashSet<RDFNode>();
+
+		getReachableNodes(node, visited);
+
+		return new LinkedList<RDFNode>(visited);
+	}
+
+	public void getReachableNodes(RDFNode node, Set<RDFNode> visited) {
+		visited.add(node);
+
+		node.getModel().listObjects().forEachRemaining(next -> {
+			if (!visited.contains(next)) {
+				getReachableNodes(next, visited);
+			}
+		});
+	}
 	
 	private Collection<RDFNode> computeValueNodes(RDFNode focusNode, Constraint constraint) {
 		Property predicate = constraint.getShape().getPredicate();
