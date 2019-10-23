@@ -23,6 +23,7 @@ import org.topbraid.shacl.arq.functions.HasShapeFunction;
 import org.topbraid.shacl.engine.Constraint;
 import org.topbraid.shacl.engine.Shape;
 import org.topbraid.shacl.engine.ShapesGraph;
+import org.topbraid.shacl.model.SHShape;
 import org.topbraid.shacl.util.FailureLog;
 import org.topbraid.shacl.util.ModelPrinter;
 import org.topbraid.shacl.vocabulary.DASH;
@@ -62,7 +63,10 @@ public abstract class AbstractNativeConstraintExecutor implements ConstraintExec
 			HashMap<RDFNode, HashMap<RDFNode, Boolean>> assignment = new HashMap<RDFNode, HashMap<RDFNode, Boolean>>();
 
 			List<Shape> fpShapes = engine.getShapesGraph().getShapeDependencies(shape);
-			List<RDFNode> fpNodes = engine.getReachableNodes(valueNode);
+			List<Resource> fpShapePaths = fpShapes.stream()
+					.flatMap(fpShape -> fpShape.getConstraintPaths().stream())
+					.distinct().collect(Collectors.toList());
+			List<RDFNode> fpNodes = engine.getReachableNodes(valueNode, fpShapePaths);
 
 			fpNodes.forEach(fpNode -> {
 				if (!assignment.containsKey(fpNode)) {

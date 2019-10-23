@@ -22,6 +22,7 @@ import java.util.HashSet;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Set;
+import java.util.stream.Collectors;
 
 import org.apache.jena.query.Dataset;
 import org.apache.jena.rdf.model.Property;
@@ -175,7 +176,12 @@ public class Shape {
 		return constraints;
 	}
 	
-	
+	public List<Resource> getConstraintPaths() {
+		return this.getConstraints().stream()
+				.map(constraint -> shapesGraph.getShape(constraint.getParameterValue().asNode()).getShapeResource())
+				.map(x -> x.getPath()).distinct().collect(Collectors.toList());
+	}
+
 	public Path getJenaPath() {
 		return jenaPath;
 	}

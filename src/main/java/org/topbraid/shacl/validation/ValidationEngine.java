@@ -265,22 +265,32 @@ public class ValidationEngine extends AbstractEngine implements ConfigurableEngi
 		}
 	}
 
-	public List<RDFNode> getReachableNodes(RDFNode node) {
+	public List<RDFNode> getReachableNodes(RDFNode node, List<Resource> paths) {
 		HashSet<RDFNode> visited = new HashSet<RDFNode>();
 
-		getReachableNodes(node, visited);
+		getReachableNodes(node, paths, visited);
 
 		return new LinkedList<RDFNode>(visited);
 	}
 
-	public void getReachableNodes(RDFNode node, Set<RDFNode> visited) {
+	public void getReachableNodes(RDFNode node, List<Resource> paths, Set<RDFNode> visited) {
 		visited.add(node);
 
-		node.getModel().listObjects().forEachRemaining(next -> {
-			if (!visited.contains(next)) {
-				getReachableNodes(next, visited);
-			}
-		});
+		if (node instanceof Resource) {
+			paths.forEach(path -> {
+				Iterator<RDFNode> list = path.isAnon()
+						? evaluateJenaPath(node,
+								(Path) SHACLPaths.getJenaPath(SHACLPaths.getPathString(path), path.getModel()))
+										.iterator()
+						: node.asResource().listProperties(JenaUtil.asProperty(path)).mapWith(x -> x.getObject());
+
+				list.forEachRemaining(next -> {
+					if (!visited.contains(next)) {
+						getReachableNodes(next, paths, visited);
+					}
+				});
+			});
+		}
 	}
 	
 	private Collection<RDFNode> computeValueNodes(RDFNode focusNode, Constraint constraint) {
@@ -297,23 +307,30 @@ public class ValidationEngine extends AbstractEngine implements ConfigurableEngi
 		}
 		else {
 			Path jenaPath = constraint.getShape().getJenaPath();
-			if(jenaPath instanceof P_Inverse && ((P_Inverse)jenaPath).getSubPath() instanceof P_Link) {
-				List<RDFNode> results = new LinkedList<>();
-				Property inversePredicate = ResourceFactory.createProperty(((P_Link)((P_Inverse)jenaPath).getSubPath()).getNode().getURI());
-				Iterator<Statement> it = focusNode.getModel().listStatements(null, inversePredicate, focusNode);
-				while(it.hasNext()) {
-					results.add(it.next().getSubject());
-				}
-				return results;					
-			}
-			Set<RDFNode> results = new HashSet<>();
-			Iterator<Node> it = PathEval.eval(focusNode.getModel().getGraph(), focusNode.asNode(), jenaPath, Context.emptyContext);
+
+			return evaluateJenaPath(focusNode, jenaPath);
+		}
+	}
+
+	private Collection<RDFNode> evaluateJenaPath(RDFNode focusNode, Path jenaPath) {
+		if (jenaPath instanceof P_Inverse && ((P_Inverse) jenaPath).getSubPath() instanceof P_Link) {
+			List<RDFNode> results = new LinkedList<>();
+			Property inversePredicate = ResourceFactory
+					.createProperty(((P_Link) ((P_Inverse) jenaPath).getSubPath()).getNode().getURI());
+			Iterator<Statement> it = focusNode.getModel().listStatements(null, inversePredicate, focusNode);
 			while(it.hasNext()) {
-				Node node = it.next();
-				results.add(focusNode.getModel().asRDFNode(node));
+				results.add(it.next().getSubject());
 			}
 			return results;
 		}
+		Set<RDFNode> results = new HashSet<>();
+		Iterator<Node> it = PathEval.eval(focusNode.getModel().getGraph(), focusNode.asNode(), jenaPath,
+				Context.emptyContext);
+		while (it.hasNext()) {
+			Node node = it.next();
+			results.add(focusNode.getModel().asRDFNode(node));
+		}
+		return results;
 	}
 	
 	
