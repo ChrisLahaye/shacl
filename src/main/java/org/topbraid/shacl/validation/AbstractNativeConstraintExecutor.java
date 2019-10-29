@@ -85,6 +85,9 @@ public abstract class AbstractNativeConstraintExecutor implements ConstraintExec
 
 				for (Shape fpShape : fpShapes) {
 					for (RDFNode fpNode : fpNodes) {
+						if (assignment.containsKey(fpNode) && assignment.get(fpNode).containsKey(fpShape))
+							continue;
+
 						System.out.println("!! >> " + fpShape.getShapeResource() + " " + fpNode);
 
 						ValidationEngine newEngine = ValidationEngineFactory.get().create(engine.getDataset(),
