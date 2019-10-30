@@ -69,8 +69,6 @@ public class ShapesGraph {
 	private Map<Property,SHConstraintComponent> parametersMap = new ConcurrentHashMap<>();
 	
 	private List<Shape> rootShapes;
-	
-	private List<Shape> nodeShapes;
 
 	private Map<Shape, List<Shape>> shapeDependencies = new HashMap<Shape, List<Shape>>();
 
@@ -251,67 +249,6 @@ public class ShapesGraph {
 		shapeDependencies.put(shape, refs);
 
 		return refs;
-	}
-
-	public List<Shape> getNodeShapes() {
-		if (nodeShapes != null) {
-			return nodeShapes;
-		}
-
-		// A shape is an IRI or blank node s that fulfills at least one of the following conditions in the shapes graph:
-		Set<Resource> candidates = new HashSet<>();
-
-		//	s is a SHACL instance of sh:NodeShape or sh:PropertyShape.
-		candidates.addAll(JenaUtil.getAllInstances(shapesModel.getResource(SH.NodeShape.getURI())));
-
-		//	s is subject of a triple that has sh:targetClass, sh:targetNode, sh:targetObjectsOf or sh:targetSubjectsOf as predicate.
-		candidates.addAll(shapesModel.listSubjectsWithProperty(SH.targetClass).toList());
-		candidates.addAll(shapesModel.listSubjectsWithProperty(SH.targetNode).toList());
-		candidates.addAll(shapesModel.listSubjectsWithProperty(SH.targetObjectsOf).toList());
-		candidates.addAll(shapesModel.listSubjectsWithProperty(SH.targetSubjectsOf).toList());
-
-		//	s is subject of a triple that has a parameter as predicate.
-		for (Resource parameter :  SHACLSystemModel.getSHACLModel().listSubjectsWithProperty(RDF.type, SH.Parameter).toList()) {
-			StmtIterator it = parameter.listProperties(SH.path);
-
-			if (it.hasNext()) {
-				String uri = it.next().getObject().asNode().getURI();
-
-				candidates.addAll(shapesModel.listSubjectsWithProperty(ResourceFactory.createProperty(uri)).toList());
-			}
-		}
-
-		//	s is a value of a shape-expecting, non-list-taking parameter such as sh:node, or a member of a SHACL list that is a value of a shape-expecting and list-taking parameter such as sh:or.
-		for (Property parameter : new Property[] {SH.not, SH.qualifiedValueShape, SH.node}) {
-			candidates.addAll(shapesModel.listObjectsOfProperty(parameter).mapWith(n -> n.asResource()).toList());
-		}
-
-		for (Property parameter : new Property[] {SH.and, SH.or, SH.xone}) {
-			for (RDFNode node : shapesModel.listObjectsOfProperty(parameter).toList()) {
-				RDFList list = node.as(RDFList.class);
-				ExtendedIterator<RDFNode> sit = list.iterator();
-
-				candidates.addAll(sit.mapWith(n -> n.asResource()).toList());
-			}
-		}
-
-		// A node shape is a shape in the shapes graph that is not the subject of a triple with sh:path as its predicate. 
-		candidates.removeAll(shapesModel.listSubjectsWithProperty(SH.path).toList());
-
-		// Turn the shape Resource objects into Shape instances
-		nodeShapes = new LinkedList<Shape>();
-
-		for(Resource candidate : candidates) {
-			SHShape shapeResource = SHFactory.asShape(candidate);
-
-			if(!shapeResource.isDeactivated() && !isIgnored(shapeResource.asNode())) {
-				Shape shape = getShape(shapeResource.asNode());
-
-				nodeShapes.add(shape);
-			}
-		}
-
-		return nodeShapes;
 	}
 	
 	public Shape getShape(Node node) {
