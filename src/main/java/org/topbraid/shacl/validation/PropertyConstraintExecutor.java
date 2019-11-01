@@ -46,25 +46,42 @@ class PropertyConstraintExecutor implements ConstraintExecutor {
 		SHShape shape = constraint.getShapeResource();
 		SHShape propertyShape = engine.getShapesGraph().getShape(constraint.getParameterValue().asNode()).getShapeResource();
 		if(shape.isPropertyShape()) {
-			throw new RuntimeException("PropertyConstraintExecutor defined by property shape");
+			for (RDFNode focusNode : focusNodes) {
+				Collection<RDFNode> valueNodes = engine.getValueNodes(constraint, focusNode);
+				executeHelper(engine, valueNodes, propertyShape.asNode());
+				engine.checkCanceled();
 
-//			for(RDFNode focusNode : focusNodes) {
-//				Collection<RDFNode> valueNodes = engine.getValueNodes(constraint, focusNode);
-//				executeHelper(engine, valueNodes, propertyShape.asNode());
-//				engine.checkCanceled();
-//			}
+				if (engine.getAssignment() != null) {
+					Model report = engine.getReport().getModel();
+
+					boolean valueNodeFailed = false;
+					boolean valueNodeUnknown = false;
+
+					for (RDFNode valueNode : valueNodes) {
+						if (report.contains(propertyShape, RSH.No, valueNode)) {
+							valueNodeFailed = true;
+							break;
+						}
+						if (report.contains(propertyShape, RSH.Unknown, valueNode)) {
+							valueNodeUnknown = true;
+						}
+					}
+
+					report.add(shape, valueNodeFailed ? RSH.No : (valueNodeUnknown ? RSH.Unknown : RSH.Yes), focusNode);
+				}
+			}
 		}
 		else {
 			executeHelper(engine, focusNodes, propertyShape.asNode());
-		}
 
-		if (engine.getAssignment() != null) {
-			Model report = engine.getReport().getModel();
+			if (engine.getAssignment() != null) {
+				Model report = engine.getReport().getModel();
 
-			for (RDFNode focusNode : focusNodes) {
-				for (Statement it : report.listStatements(propertyShape, null, focusNode).toList()) {
-					if (it.getPredicate().getNameSpace().equals(RSH.NS)) {
-						report.add(shape, it.getPredicate(), focusNode);
+				for (RDFNode focusNode : focusNodes) {
+					for (Statement it : report.listStatements(propertyShape, null, focusNode).toList()) {
+						if (it.getPredicate().getNameSpace().equals(RSH.NS)) {
+							report.add(shape, it.getPredicate(), focusNode);
+						}
 					}
 				}
 			}
