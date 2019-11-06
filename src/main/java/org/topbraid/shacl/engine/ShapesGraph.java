@@ -238,11 +238,7 @@ public class ShapesGraph {
 			if(!shapeResource.isDeactivated() && !isIgnored(shapeResource.asNode())) {
 				Shape q = getShape(shapeResource.asNode());
 
-				if (q.isNodeShape()) {
-					refs.add(q);
-				} else {
-					refs.addAll(getShapeDirectDependencies(q));
-				}
+				refs.add(q);
 			}
 		}
 

@@ -175,12 +175,6 @@ public class Shape {
 		}
 		return constraints;
 	}
-	
-	public List<Resource> getConstraintPaths() {
-		return this.getConstraints().stream()
-				.map(constraint -> shapesGraph.getShape(constraint.getParameterValue().asNode()).getShapeResource())
-				.map(x -> x.getPath()).distinct().collect(Collectors.toList());
-	}
 
 	public Path getJenaPath() {
 		return jenaPath;

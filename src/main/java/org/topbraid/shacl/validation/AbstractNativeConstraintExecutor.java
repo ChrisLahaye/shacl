@@ -64,7 +64,8 @@ public abstract class AbstractNativeConstraintExecutor implements ConstraintExec
 
 			List<Shape> fpShapes = engine.getShapesGraph().getShapeDependencies(shape);
 			List<Resource> fpShapePaths = fpShapes.stream()
-					.flatMap(fpShape -> fpShape.getConstraintPaths().stream())
+					.filter(fpShape -> !fpShape.isNodeShape())
+					.map(fpShape -> fpShape.getPath())
 					.distinct().collect(Collectors.toList());
 			List<RDFNode> fpNodes = engine.getReachableNodes(valueNode, fpShapePaths);
 
@@ -93,7 +94,9 @@ public abstract class AbstractNativeConstraintExecutor implements ConstraintExec
 						ValidationEngine newEngine = ValidationEngineFactory.get().create(engine.getDataset(),
 								engine.getShapesGraphURI(), engine.getShapesGraph(), null);
 						newEngine.setAssignment(prevAssignment);
-						newEngine.setConfiguration(ValidationEngine.getCurrent().getConfiguration());
+						if (ValidationEngine.getCurrent() != null) {
+							newEngine.setConfiguration(ValidationEngine.getCurrent().getConfiguration());
+						}
 						Model results = newEngine.validateNodesAgainstShape(Collections.singletonList(fpNode),
 								fpShape.getShapeResource().asNode()).getModel();
 
