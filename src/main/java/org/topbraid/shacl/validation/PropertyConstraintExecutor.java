@@ -51,7 +51,7 @@ class PropertyConstraintExecutor implements ConstraintExecutor {
 				executeHelper(engine, valueNodes, propertyShape.asNode());
 				engine.checkCanceled();
 
-				if (engine.getAssignment() != null) {
+				if (engine.getAssignment() != null && !engine.isReporting()) {
 					Model report = engine.getReport().getModel();
 
 					boolean valueNodeFailed = false;
@@ -74,7 +74,7 @@ class PropertyConstraintExecutor implements ConstraintExecutor {
 		else {
 			executeHelper(engine, focusNodes, propertyShape.asNode());
 
-			if (engine.getAssignment() != null) {
+			if (engine.getAssignment() != null && !engine.isReporting()) {
 				Model report = engine.getReport().getModel();
 
 				for (RDFNode focusNode : focusNodes) {

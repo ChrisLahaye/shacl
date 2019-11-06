@@ -45,7 +45,7 @@ public abstract class AbstractNativeConstraintExecutor implements ConstraintExec
 			RDFNode shapeNode, boolean recursionIsError) {
 		Shape shape = engine.getShapesGraph().getShape(shapeNode.asNode());
 
-		if (shape.isNodeShape() && engine.getAssignment() != null) {
+		if (engine.getAssignment() != null) {
 			Model nestedResults = JenaUtil.createMemoryModel();
 
 			Property predicate = (engine.getAssignment().get(valueNode).containsKey(shapeNode)
@@ -57,110 +57,6 @@ public abstract class AbstractNativeConstraintExecutor implements ConstraintExec
 			System.out.println("!! -| " + shapeNode + " " + predicate + " " + valueNode);
 
 			return nestedResults;
-		}
-
-		if (shape.isNodeShape() && engine.getShapesGraph().isShapeCyclic(shape)) {
-			HashMap<RDFNode, HashMap<RDFNode, Boolean>> assignment = new HashMap<RDFNode, HashMap<RDFNode, Boolean>>();
-
-			List<Shape> fpShapes = engine.getShapesGraph().getShapeDependencies(shape);
-			List<Resource> fpShapePaths = fpShapes.stream()
-					.filter(fpShape -> !fpShape.isNodeShape())
-					.map(fpShape -> fpShape.getPath())
-					.distinct().collect(Collectors.toList());
-			List<RDFNode> fpNodes = engine.getReachableNodes(valueNode, fpShapePaths);
-
-			fpNodes.forEach(fpNode -> {
-				if (!assignment.containsKey(fpNode)) {
-					assignment.put(fpNode, new HashMap<RDFNode, Boolean>());
-				}
-			});
-
-			fp: while (true) {
-				HashMap<RDFNode, HashMap<RDFNode, Boolean>> prevAssignment = new HashMap<RDFNode, HashMap<RDFNode, Boolean>>();
-
-				assignment.forEach((key, value) -> {
-					prevAssignment.put(key, (HashMap<RDFNode, Boolean>) value.clone());
-				});
-
-				System.out.println("!! > Iteration");
-
-				for (Shape fpShape : fpShapes) {
-					for (RDFNode fpNode : fpNodes) {
-						if (assignment.containsKey(fpNode) && assignment.get(fpNode).containsKey(fpShape))
-							continue;
-
-						System.out.println("!! >> " + fpShape.getShapeResource() + " " + fpNode);
-
-						ValidationEngine newEngine = ValidationEngineFactory.get().create(engine.getDataset(),
-								engine.getShapesGraphURI(), engine.getShapesGraph(), null);
-						newEngine.setAssignment(prevAssignment);
-						if (ValidationEngine.getCurrent() != null) {
-							newEngine.setConfiguration(ValidationEngine.getCurrent().getConfiguration());
-						}
-						Model results = newEngine.validateNodesAgainstShape(Collections.singletonList(fpNode),
-								fpShape.getShapeResource().asNode()).getModel();
-
-						System.out.println(ModelPrinter.get().print(results));
-						System.out.println("!! << " + fpShape + " " + fpNode);
-
-						// Check non-reference constraints
-						Boolean result = true;
-						for (Resource r : results.listSubjectsWithProperty(RDF.type, SH.ValidationResult).toList()) {
-							if (!results.contains(null, SH.detail, r)) {
-								result = false;
-								break;
-							}
-						}
-
-						if (result) {
-							// Check reference constraints
-							StmtIterator failed = results.listStatements(fpShape.getShapeResource(),
-									RSH.No, fpNode);
-
-							if (failed.hasNext()) {
-								System.out.println("!! :( Reference constraint violated: " + failed.next());
-
-								assignment.get(fpNode).put(fpShape.getShapeResource(), false);
-							} else {
-								StmtIterator unknown = results.listStatements(fpShape.getShapeResource(), RSH.Unknown,
-										fpNode);
-
-								if (unknown.hasNext()) {
-									System.out.println("!! :( Reference constraint unknown: " + unknown.next());
-								} else {
-									System.out.println("!! :) Success");
-									assignment.get(fpNode).put(fpShape.getShapeResource(), true);
-								}
-							}
-						} else {
-							System.out.println("!! :( Non-reference constraint violated");
-							assignment.get(fpNode).put(fpShape.getShapeResource(), false);
-						}
-
-						System.out.println();
-					}
-				}
-
-				System.out.println("!! < Iteration");
-
-				for (Map.Entry<RDFNode, HashMap<RDFNode, Boolean>> entry : assignment.entrySet()) {
-					System.out.println("!! - " + entry.getKey() + ": " + entry.getValue());
-				}
-
-				for (Map.Entry<RDFNode, HashMap<RDFNode, Boolean>> entry : assignment.entrySet()) {
-					if (!entry.getValue().equals(prevAssignment.get(entry.getKey()))) {
-						continue fp;
-					}
-				}
-
-				break fp;
-			}
-
-			if (assignment.get(valueNode).containsKey(shapeNode) && !assignment.get(valueNode).get(shapeNode)) {
-				return JenaUtil.createMemoryModel();
-			}
-
-			return null;
 		}
 
 		URI oldShapesGraphURI = HasShapeFunction.getShapesGraphURI();

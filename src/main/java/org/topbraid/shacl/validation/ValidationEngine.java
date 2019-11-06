@@ -32,6 +32,7 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.Function;
 import java.util.function.Predicate;
 import java.util.function.Supplier;
+import java.util.stream.Collectors;
 
 import org.apache.jena.graph.Node;
 import org.apache.jena.query.Dataset;
@@ -65,9 +66,11 @@ import org.topbraid.shacl.js.SHACLScriptEngineManager;
 import org.topbraid.shacl.targets.InstancesTarget;
 import org.topbraid.shacl.targets.Target;
 import org.topbraid.shacl.util.FailureLog;
+import org.topbraid.shacl.util.ModelPrinter;
 import org.topbraid.shacl.util.SHACLPreferences;
 import org.topbraid.shacl.validation.sparql.SPARQLSubstitutions;
 import org.topbraid.shacl.vocabulary.DASH;
+import org.topbraid.shacl.vocabulary.RSH;
 import org.topbraid.shacl.vocabulary.SH;
 
 /**
@@ -109,6 +112,7 @@ public class ValidationEngine extends AbstractEngine implements ConfigurableEngi
 
 	private HashMap<RDFNode, HashMap<RDFNode, Boolean>> assignment;
 	
+	private boolean reporting = false;
 
 	/**
 	 * Constructs a new ValidationEngine.
@@ -463,20 +467,151 @@ public class ValidationEngine extends AbstractEngine implements ConfigurableEngi
 	 * @return an instance of sh:ValidationReport in the results Model
 	 */
 	public Resource validateNodesAgainstShape(List<RDFNode> focusNodes, Node shape) {
-		if(!shapesGraph.isIgnored(shape)) {
+		if (!shapesGraph.isIgnored(shape)) {
 			Shape vs = shapesGraph.getShape(shape);
-			if(!vs.isDeactivated()) {
+			if (!vs.isDeactivated()) {
 				boolean nested = SHACLScriptEngineManager.begin();
 				ValidationEngine oldEngine = current.get();
 				current.set(this);
 				try {
-					System.out.println("validateNodesAgainstShape(" + Arrays.toString(focusNodes.toArray()) +", " + shape +")");
+					System.out.println(
+							"validateNodesAgainstShape(" + Arrays.toString(focusNodes.toArray()) + ", " + shape + ")");
 
-					for(Constraint constraint : vs.getConstraints()) {
-						validateNodesAgainstConstraint(focusNodes, constraint);
+					if (getAssignment() == null && getShapesGraph().isShapeCyclic(vs)) {
+						HashMap<RDFNode, HashMap<RDFNode, Boolean>> assignment = new HashMap<RDFNode, HashMap<RDFNode, Boolean>>();
+
+						List<Shape> fpShapes = getShapesGraph().getShapeDependencies(vs);
+						List<Resource> fpShapePaths = fpShapes.stream().filter(fpShape -> !fpShape.isNodeShape())
+								.map(fpShape -> fpShape.getPath()).distinct().collect(Collectors.toList());
+						List<RDFNode> fpNodes = focusNodes.stream()
+								.flatMap(focusNode -> this.getReachableNodes(focusNode, fpShapePaths).stream())
+								.collect(Collectors.toList());
+
+						fpNodes.forEach(fpNode -> {
+							if (!assignment.containsKey(fpNode)) {
+								assignment.put(fpNode, new HashMap<RDFNode, Boolean>());
+							}
+						});
+
+						fp: while (true) {
+							HashMap<RDFNode, HashMap<RDFNode, Boolean>> prevAssignment = new HashMap<RDFNode, HashMap<RDFNode, Boolean>>();
+
+							assignment.forEach((key, value) -> {
+								prevAssignment.put(key, (HashMap<RDFNode, Boolean>) value.clone());
+							});
+
+							for (Shape fpShape : fpShapes) {
+								fpNext:
+								for (RDFNode fpNode : fpNodes) {
+									if (assignment.containsKey(fpNode)
+											&& assignment.get(fpNode).containsKey(fpShape.getShapeResource()))
+										continue fpNext;
+
+									System.out.println("!! >> " + fpShape + " " + fpNode);
+
+									ValidationEngine newEngine = ValidationEngineFactory.get().create(getDataset(),
+											getShapesGraphURI(), getShapesGraph(), null);
+									newEngine.setAssignment(prevAssignment);
+									if (ValidationEngine.getCurrent() != null) {
+										newEngine.setConfiguration(ValidationEngine.getCurrent().getConfiguration());
+									}
+
+									for (Constraint constraint : fpShape.getConstraints()) {
+										newEngine.validateNodesAgainstConstraint(Collections.singletonList(fpNode),
+												constraint);
+									}
+
+									Model results = newEngine.getReport().getModel();
+
+									System.out.println(ModelPrinter.get().print(results));
+									System.out.println("!! << " + fpShape + " " + fpNode);
+
+									// Check non-reference constraints
+									Boolean result = true;
+									for (Resource r : results.listSubjectsWithProperty(RDF.type, SH.ValidationResult)
+											.toList()) {
+										if (!results.contains(null, SH.detail, r)) {
+											result = false;
+											break;
+										}
+									}
+
+									if (result) {
+										// Check reference constraints
+										StmtIterator failed = results.listStatements(fpShape.getShapeResource(), RSH.No,
+												fpNode);
+
+										if (failed.hasNext()) {
+											System.out.println("!! :( Reference constraint violated: " + failed.next());
+
+											assignment.get(fpNode).put(fpShape.getShapeResource(), false);
+										} else {
+											StmtIterator unknown = results.listStatements(fpShape.getShapeResource(),
+													RSH.Unknown, fpNode);
+
+											if (unknown.hasNext()) {
+												System.out.println(
+														"!! :( Reference constraint unknown: " + unknown.next());
+											} else {
+												System.out.println("!! :) Success");
+												assignment.get(fpNode).put(fpShape.getShapeResource(), true);
+											}
+										}
+									} else {
+										System.out.println("!! :( Non-reference constraint violated");
+										assignment.get(fpNode).put(fpShape.getShapeResource(), false);
+									}
+
+									System.out.println();
+								}
+							}
+
+							System.out.println("!! < Iteration");
+
+							for (Map.Entry<RDFNode, HashMap<RDFNode, Boolean>> entry : assignment.entrySet()) {
+								System.out.println("!! - " + entry.getKey() + ": " + entry.getValue());
+							}
+
+							for (Map.Entry<RDFNode, HashMap<RDFNode, Boolean>> entry : assignment.entrySet()) {
+								if (!entry.getValue().equals(prevAssignment.get(entry.getKey()))) {
+									continue fp;
+								}
+							}
+
+							break fp;
+						}
+
+						List<RDFNode> failedNodes = focusNodes.stream()
+								.filter(focusNode -> assignment.get(focusNode).containsKey(vs.getShapeResource())
+										&& !assignment.get(focusNode).get(vs.getShapeResource()))
+								.collect(Collectors.toList());
+
+						if (failedNodes.size() > 0) {
+							setAssignment(assignment);
+							setReporting(true);
+
+							for (Constraint constraint : vs.getConstraints()) {
+								validateNodesAgainstConstraint(failedNodes, constraint);
+							}
+						}
+
+						return report;
 					}
-				}
-				finally {
+
+					if (getAssignment() != null && !isReporting()) {
+						for (RDFNode focusNode : focusNodes) {
+							Property predicate = (getAssignment().get(focusNode).containsKey(vs.getShapeResource())
+									? (getAssignment().get(focusNode).get(vs.getShapeResource()) ? RSH.Yes : RSH.No)
+									: RSH.Unknown);
+							System.out.println("!! -| " + vs + " " + predicate + " " + focusNode);
+							report.getModel().add(vs.getShapeResource(), predicate, focusNode);
+						}
+					} else {
+						for (Constraint constraint : vs.getConstraints()) {
+							validateNodesAgainstConstraint(focusNodes, constraint);
+						}
+					}
+				} finally {
 					current.set(oldEngine);
 					SHACLScriptEngineManager.end(nested);
 				}
@@ -561,6 +696,14 @@ public class ValidationEngine extends AbstractEngine implements ConfigurableEngi
 
 	public HashMap<RDFNode, HashMap<RDFNode, Boolean>> getAssignment() {
 		return assignment;
+	}
+
+	public void setReporting(boolean reporting) {
+		this.reporting = reporting;
+	}
+
+	public boolean isReporting() {
+		return reporting;
 	}
 
 	@Override

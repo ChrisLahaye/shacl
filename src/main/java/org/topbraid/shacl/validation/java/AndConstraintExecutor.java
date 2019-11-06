@@ -28,6 +28,15 @@ class AndConstraintExecutor extends AbstractShapeListConstraintExecutor {
 			value:
 			for(RDFNode valueNode : engine.getValueNodes(constraint, focusNode)) {
 				for (Resource shape : shapes) {
+					if (engine.isReporting()) {
+						if (engine.getAssignment().get(valueNode).containsKey(shape)
+								&& !engine.getAssignment().get(valueNode).get(shape)) {
+							engine.createValidationResult(constraint, focusNode, valueNode,
+									() -> "Value does not have all the shapes in the sh:and enumeration");
+						}
+						continue value;
+					}
+
 					Model nestedResults = hasShape(engine, constraint, focusNode, valueNode, shape, true);
 
 					if (engine.getAssignment() != null) {
@@ -46,7 +55,7 @@ class AndConstraintExecutor extends AbstractShapeListConstraintExecutor {
 				}
 			}
 
-			if (engine.getAssignment() != null) {
+			if (engine.getAssignment() != null && !engine.isReporting()) {
 				engine.getReport().getModel().add(constraint.getShapeResource(),
 						valueNodeFailed ? RSH.No : (valueNodeUnknown ? RSH.Unknown : RSH.Yes), focusNode);
 			}
