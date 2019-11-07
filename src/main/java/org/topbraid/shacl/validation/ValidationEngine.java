@@ -408,9 +408,8 @@ public class ValidationEngine extends AbstractEngine implements ConfigurableEngi
 				if(!focusNodes.isEmpty()) {
 					System.out.println("Shape " + (++i) + ": " + getLabelFunction().apply(shape.getShapeResource()));
 
-					for(Constraint constraint : shape.getConstraints()) {
-						validateNodesAgainstConstraint(focusNodes, constraint);
-					}
+					validateNodesAgainstShape(focusNodes.stream().collect(Collectors.toList()),
+							shape.getShapeResource().asNode());
 				}
 				if(monitor != null) {
 					monitor.worked(1);
@@ -501,13 +500,13 @@ public class ValidationEngine extends AbstractEngine implements ConfigurableEngi
 							});
 
 							for (Shape fpShape : fpShapes) {
-								fpNext:
-								for (RDFNode fpNode : fpNodes) {
-									if (assignment.containsKey(fpNode)
-											&& assignment.get(fpNode).containsKey(fpShape.getShapeResource()))
-										continue fpNext;
+								List<RDFNode> fpV = fpNodes.stream().filter(
+										fpNode -> !assignment.get(fpNode).containsKey(fpShape.getShapeResource()))
+										.collect(Collectors.toList());
+								if (fpV.size() == 0)
+									continue;
 
-									System.out.println("!! >> " + fpShape + " " + fpNode);
+								System.out.println("!! >> " + fpShape + " " + fpV);
 
 									ValidationEngine newEngine = ValidationEngineFactory.get().create(getDataset(),
 											getShapesGraphURI(), getShapesGraph(), null);
@@ -517,20 +516,22 @@ public class ValidationEngine extends AbstractEngine implements ConfigurableEngi
 									}
 
 									for (Constraint constraint : fpShape.getConstraints()) {
-										newEngine.validateNodesAgainstConstraint(Collections.singletonList(fpNode),
+									newEngine.validateNodesAgainstConstraint(fpV,
 												constraint);
 									}
 
 									Model results = newEngine.getReport().getModel();
 
 									System.out.println(ModelPrinter.get().print(results));
-									System.out.println("!! << " + fpShape + " " + fpNode);
+								System.out.println("!! << " + fpShape + " " + fpV);
 
+								for (RDFNode fpNode : fpV) {
 									// Check non-reference constraints
 									Boolean result = true;
 									for (Resource r : results.listSubjectsWithProperty(RDF.type, SH.ValidationResult)
 											.toList()) {
-										if (!results.contains(null, SH.detail, r)) {
+										if (!results.contains(null, SH.detail, r)
+												&& r.hasProperty(SH.focusNode, fpNode)) {
 											result = false;
 											break;
 										}
@@ -553,18 +554,17 @@ public class ValidationEngine extends AbstractEngine implements ConfigurableEngi
 												System.out.println(
 														"!! :( Reference constraint unknown: " + unknown.next());
 											} else {
-												System.out.println("!! :) Success");
+												System.out.println("!! :) Success " + fpNode);
 												assignment.get(fpNode).put(fpShape.getShapeResource(), true);
 											}
 										}
 									} else {
-										System.out.println("!! :( Non-reference constraint violated");
+										System.out.println("!! :( Non-reference constraint violated " + fpNode);
 										assignment.get(fpNode).put(fpShape.getShapeResource(), false);
 									}
-
+								}
 									System.out.println();
 								}
-							}
 
 							System.out.println("!! < Iteration");
 
@@ -594,7 +594,6 @@ public class ValidationEngine extends AbstractEngine implements ConfigurableEngi
 								validateNodesAgainstConstraint(failedNodes, constraint);
 							}
 						}
-
 						return report;
 					}
 
