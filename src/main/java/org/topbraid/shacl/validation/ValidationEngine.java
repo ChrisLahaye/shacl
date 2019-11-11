@@ -501,7 +501,7 @@ public class ValidationEngine extends AbstractEngine implements ConfigurableEngi
 
 							for (Shape fpShape : fpShapes) {
 								List<RDFNode> fpV = fpNodes.stream().filter(
-										fpNode -> !assignment.get(fpNode).containsKey(fpShape.getShapeResource()))
+										fpNode -> !prevAssignment.get(fpNode).containsKey(fpShape.getShapeResource()))
 										.collect(Collectors.toList());
 								if (fpV.size() == 0)
 									continue;
@@ -511,6 +511,7 @@ public class ValidationEngine extends AbstractEngine implements ConfigurableEngi
 									ValidationEngine newEngine = ValidationEngineFactory.get().create(getDataset(),
 											getShapesGraphURI(), getShapesGraph(), null);
 									newEngine.setAssignment(prevAssignment);
+								newEngine.setReporting(true);
 									if (ValidationEngine.getCurrent() != null) {
 										newEngine.setConfiguration(ValidationEngine.getCurrent().getConfiguration());
 									}
@@ -519,6 +520,8 @@ public class ValidationEngine extends AbstractEngine implements ConfigurableEngi
 									newEngine.validateNodesAgainstConstraint(fpV,
 												constraint);
 									}
+								newEngine.setReporting(false);
+								;
 
 									Model results = newEngine.getReport().getModel();
 
@@ -588,7 +591,6 @@ public class ValidationEngine extends AbstractEngine implements ConfigurableEngi
 
 						if (failedNodes.size() > 0) {
 							setAssignment(assignment);
-							setReporting(true);
 
 							for (Constraint constraint : vs.getConstraints()) {
 								validateNodesAgainstConstraint(failedNodes, constraint);
@@ -597,7 +599,7 @@ public class ValidationEngine extends AbstractEngine implements ConfigurableEngi
 						return report;
 					}
 
-					if (getAssignment() != null && !isReporting()) {
+					if (getAssignment() != null && isReporting()) {
 						for (RDFNode focusNode : focusNodes) {
 							Property predicate = (getAssignment().get(focusNode).containsKey(vs.getShapeResource())
 									? (getAssignment().get(focusNode).get(vs.getShapeResource()) ? RSH.Yes : RSH.No)
@@ -696,6 +698,19 @@ public class ValidationEngine extends AbstractEngine implements ConfigurableEngi
 	public HashMap<RDFNode, HashMap<RDFNode, Boolean>> getAssignment() {
 		return assignment;
 	}
+
+	public boolean hasAssignment() {
+		return assignment != null;
+	}
+
+	public boolean hasShapeAssigned(RDFNode shape, RDFNode node) {
+		return hasAssignment() && assignment.get(node).containsKey(shape) && assignment.get(node).get(shape);
+	}
+
+	public boolean hasNegShapeAssigned(RDFNode shape, RDFNode node) {
+		return hasAssignment() && assignment.get(node).containsKey(shape) && !assignment.get(node).get(shape);
+	}
+
 
 	public void setReporting(boolean reporting) {
 		this.reporting = reporting;

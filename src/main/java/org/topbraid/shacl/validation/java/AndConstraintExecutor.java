@@ -29,25 +29,15 @@ class AndConstraintExecutor extends AbstractShapeListConstraintExecutor {
 			for(RDFNode valueNode : engine.getValueNodes(constraint, focusNode)) {
 				for (Resource shape : shapes) {
 					if (engine.isReporting()) {
-						if (engine.getAssignment().get(valueNode).containsKey(shape)
-								&& !engine.getAssignment().get(valueNode).get(shape)) {
-							engine.createValidationResult(constraint, focusNode, valueNode,
-									() -> "Value does not have all the shapes in the sh:and enumeration");
-						}
-						continue value;
-					}
-
-					Model nestedResults = hasShape(engine, constraint, focusNode, valueNode, shape, true);
-
-					if (engine.getAssignment() != null) {
-						if (nestedResults.contains(shape.asResource(), RSH.No, valueNode)) {
+						if (engine.hasNegShapeAssigned(shape, valueNode)) {
 							valueNodeFailed = true;
-							continue value;
-						}
-						if (nestedResults.contains(shape.asResource(), RSH.Unknown, valueNode)) {
+							break value;
+						} else if (!engine.hasShapeAssigned(shape, valueNode)) {
 							valueNodeUnknown = true;
 						}
-					} else if (nestedResults != null) {
+					} else if (!engine.hasNegShapeAssigned(shape, valueNode)
+							|| (!engine.hasAssignment()
+									&& hasShape(engine, constraint, focusNode, valueNode, shape, true) != null)) {
 						engine.createValidationResult(constraint, focusNode, valueNode,
 								() -> "Value does not have all the shapes in the sh:and enumeration");
 						continue value;
@@ -55,7 +45,7 @@ class AndConstraintExecutor extends AbstractShapeListConstraintExecutor {
 				}
 			}
 
-			if (engine.getAssignment() != null && !engine.isReporting()) {
+			if (engine.isReporting()) {
 				engine.getReport().getModel().add(constraint.getShapeResource(),
 						valueNodeFailed ? RSH.No : (valueNodeUnknown ? RSH.Unknown : RSH.Yes), focusNode);
 			}

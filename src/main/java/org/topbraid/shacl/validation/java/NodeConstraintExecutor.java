@@ -24,35 +24,21 @@ class NodeConstraintExecutor extends AbstractNativeConstraintExecutor {
 
 			for(RDFNode valueNode : engine.getValueNodes(constraint, focusNode)) {
 				if (engine.isReporting()) {
-					if (engine.getAssignment().get(valueNode).containsKey(shape)
-							&& !engine.getAssignment().get(valueNode).get(shape)) {
-						engine.createValidationResult(constraint, focusNode, valueNode,
-								() -> "Value does not have shape " + engine.getLabelFunction().apply(shape));
-					}
-					continue;
-				}
-
-				Model nestedResults = hasShape(engine, constraint, focusNode, valueNode, shape, false);
-
-				if (engine.getAssignment() != null) {
-					if (nestedResults.contains(shape.asResource(), RSH.No, valueNode)) {
+					if (engine.hasNegShapeAssigned(shape, valueNode)) {
 						valueNodeFailed = true;
 						break;
-					}
-					if (nestedResults.contains(shape.asResource(), RSH.Unknown, valueNode)) {
+					} else if (!engine.hasShapeAssigned(shape, valueNode)) {
 						valueNodeUnknown = true;
 					}
-				} else if(nestedResults != null) {
-					Resource result = engine.createValidationResult(constraint, focusNode, valueNode, () -> "Value does not have shape " + engine.getLabelFunction().apply(shape));
-					if(engine.getConfiguration().getReportDetails()) {
-						AbstractSPARQLExecutor.addDetails(result, nestedResults);
-					}
+				} else if (engine.hasNegShapeAssigned(shape, valueNode) || (!engine.hasAssignment()
+						&& hasShape(engine, constraint, focusNode, valueNode, shape, false) != null)) {
+					engine.createValidationResult(constraint, focusNode, valueNode,
+							() -> "Value does not have shape " + engine.getLabelFunction().apply(shape));
 				}
 			}
 			engine.checkCanceled();
 
-
-			if (engine.getAssignment() != null && !engine.isReporting()) {
+			if (engine.isReporting()) {
 				engine.getReport().getModel().add(constraint.getShapeResource(),
 						valueNodeFailed ? RSH.No : (valueNodeUnknown ? RSH.Unknown : RSH.Yes), focusNode);
 			}
