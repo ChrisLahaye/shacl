@@ -21,6 +21,7 @@ import java.util.Arrays;
 import java.util.Collection;
 import java.util.LinkedList;
 import java.util.List;
+import java.util.stream.Collectors;
 
 import org.apache.jena.graph.Node;
 import org.apache.jena.rdf.model.Model;
@@ -43,56 +44,43 @@ class PropertyConstraintExecutor implements ConstraintExecutor {
 	public void executeConstraint(Constraint constraint, ValidationEngine engine, Collection<RDFNode> focusNodes) {
 		System.out.println("-| -| PropertyConstraintExecutor.executeConstraint(" + constraint.toString() + ", _, " + Arrays.toString(focusNodes.toArray()) + ") with value " + constraint.getParameterValue().toString());
 
+		Model report = engine.getReport().getModel();
 		SHShape shape = constraint.getShapeResource();
 		SHShape propertyShape = engine.getShapesGraph().getShape(constraint.getParameterValue().asNode()).getShapeResource();
 		if(shape.isPropertyShape()) {
 			for (RDFNode focusNode : focusNodes) {
 				Collection<RDFNode> valueNodes = engine.getValueNodes(constraint, focusNode);
-				executeHelper(engine, valueNodes, propertyShape.asNode());
-				engine.checkCanceled();
 
-				if (engine.getAssignment() != null && !engine.isReporting()) {
-					Model report = engine.getReport().getModel();
-
-					boolean valueNodeFailed = false;
-					boolean valueNodeUnknown = false;
-
-					for (RDFNode valueNode : valueNodes) {
-						if (report.contains(propertyShape, RSH.No, valueNode)) {
-							valueNodeFailed = true;
-							break;
-						}
-						if (report.contains(propertyShape, RSH.Unknown, valueNode)) {
-							valueNodeUnknown = true;
-						}
-					}
-
-					report.add(shape, valueNodeFailed ? RSH.No : (valueNodeUnknown ? RSH.Unknown : RSH.Yes), focusNode);
+				if (engine.isReporting()) {
+					report.add(shape,
+							valueNodes.stream()
+									.anyMatch(valueNode -> engine.hasNegShapeAssigned(propertyShape, valueNode))
+											? RSH.No
+											: (valueNodes.stream().allMatch(
+													valueNode -> engine.hasShapeAssigned(propertyShape, valueNode))
+															? RSH.Yes
+															: RSH.Unknown),
+							focusNode);
+				} else {
+					engine.validateNodesAgainstShape(new ArrayList<RDFNode>(
+							valueNodes.stream().filter(valueNode -> !engine.hasShapeAssigned(propertyShape, valueNode))
+									.collect(Collectors.toList())),
+							propertyShape.asNode());
+					engine.checkCanceled();
 				}
 			}
 		}
 		else {
-			executeHelper(engine, focusNodes, propertyShape.asNode());
-
-			if (engine.getAssignment() != null && !engine.isReporting()) {
-				Model report = engine.getReport().getModel();
-
+			if (engine.isReporting()) {
 				for (RDFNode focusNode : focusNodes) {
-					for (Statement it : report.listStatements(propertyShape, null, focusNode).toList()) {
-						if (it.getPredicate().getNameSpace().equals(RSH.NS)) {
-							report.add(shape, it.getPredicate(), focusNode);
-						}
-					}
+					report.add(shape, engine.hasNegShapeAssigned(propertyShape, focusNode) ? RSH.No : (engine.hasShapeAssigned(propertyShape, focusNode) ? RSH.Yes : RSH.Unknown), focusNode);
 				}
+			} else {
+				List<RDFNode> valueNodes = focusNodes.stream()
+						.filter(valueNode -> !engine.hasShapeAssigned(propertyShape, valueNode))
+						.collect(Collectors.toList());
+				engine.validateNodesAgainstShape(valueNodes, propertyShape.asNode());
 			}
 		}
-	}
-
-
-	private void executeHelper(ValidationEngine engine, Collection<RDFNode> valueNodes, Node propertyShape) {
-		System.out.println("-| -| -> executeHelper(_, " + Arrays.toString(valueNodes.toArray()) + ", " + (propertyShape.isBlank() ? propertyShape.getBlankNodeLabel() : propertyShape.toString()) +")");
-		System.out.println("-| -| -| -> engine.validateNodesAgainstShape()");
-
-		engine.validateNodesAgainstShape(new ArrayList<RDFNode>(valueNodes), propertyShape);
 	}
 }
