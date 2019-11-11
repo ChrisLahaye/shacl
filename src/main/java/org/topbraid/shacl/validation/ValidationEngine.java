@@ -476,7 +476,7 @@ public class ValidationEngine extends AbstractEngine implements ConfigurableEngi
 					System.out.println(
 							"validateNodesAgainstShape(" + Arrays.toString(focusNodes.toArray()) + ", " + shape + ")");
 
-					if (getAssignment() == null && getShapesGraph().isShapeCyclic(vs)) {
+					if (!hasAssignment() && getShapesGraph().isShapeCyclic(vs)) {
 						HashMap<RDFNode, HashMap<RDFNode, Boolean>> assignment = new HashMap<RDFNode, HashMap<RDFNode, Boolean>>();
 
 						List<Shape> fpShapes = getShapesGraph().getShapeDependencies(vs);
@@ -517,11 +517,9 @@ public class ValidationEngine extends AbstractEngine implements ConfigurableEngi
 									}
 
 									for (Constraint constraint : fpShape.getConstraints()) {
-									newEngine.validateNodesAgainstConstraint(fpV,
-												constraint);
+									newEngine.validateNodesAgainstConstraint(fpV, constraint);
 									}
 								newEngine.setReporting(false);
-								;
 
 									Model results = newEngine.getReport().getModel();
 
@@ -591,7 +589,7 @@ public class ValidationEngine extends AbstractEngine implements ConfigurableEngi
 
 						if (failedNodes.size() > 0) {
 							setAssignment(assignment);
-
+							System.out.println(failedNodes);
 							for (Constraint constraint : vs.getConstraints()) {
 								validateNodesAgainstConstraint(failedNodes, constraint);
 							}
@@ -599,18 +597,8 @@ public class ValidationEngine extends AbstractEngine implements ConfigurableEngi
 						return report;
 					}
 
-					if (getAssignment() != null && isReporting()) {
-						for (RDFNode focusNode : focusNodes) {
-							Property predicate = (getAssignment().get(focusNode).containsKey(vs.getShapeResource())
-									? (getAssignment().get(focusNode).get(vs.getShapeResource()) ? RSH.Yes : RSH.No)
-									: RSH.Unknown);
-							System.out.println("!! -| " + vs + " " + predicate + " " + focusNode);
-							report.getModel().add(vs.getShapeResource(), predicate, focusNode);
-						}
-					} else {
-						for (Constraint constraint : vs.getConstraints()) {
-							validateNodesAgainstConstraint(focusNodes, constraint);
-						}
+					for (Constraint constraint : vs.getConstraints()) {
+						validateNodesAgainstConstraint(focusNodes, constraint);
 					}
 				} finally {
 					current.set(oldEngine);
