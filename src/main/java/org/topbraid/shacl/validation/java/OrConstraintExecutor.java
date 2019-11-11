@@ -12,6 +12,7 @@ import org.apache.jena.rdf.model.StmtIterator;
 import org.topbraid.jenax.util.JenaUtil;
 import org.topbraid.shacl.engine.Constraint;
 import org.topbraid.shacl.validation.ValidationEngine;
+import org.topbraid.shacl.vocabulary.RSH;
 import org.topbraid.shacl.vocabulary.SH;
 
 class OrConstraintExecutor extends AbstractShapeListConstraintExecutor {
@@ -49,18 +50,30 @@ class OrConstraintExecutor extends AbstractShapeListConstraintExecutor {
 		}
 		else {
 			for(RDFNode focusNode : focusNodes) {
+				boolean valueNodeFailed = false;
+				boolean valueNodeUnknown = false;
+
+				value:
 				for(RDFNode valueNode : engine.getValueNodes(constraint, focusNode)) {
-					boolean hasOne = false;
-					for(RDFNode shape : shapes) {
-						Model nestedResults = hasShape(engine, constraint, focusNode, valueNode, shape, true);
-						if(nestedResults == null) {
-							hasOne = true;
-							break;
+					if (engine.isReporting()) {
+						if (shapes.stream().anyMatch(shape -> engine.hasNegShapeAssigned(shape, valueNode))) {
+							valueNodeFailed = true;
+							break value;
+						} else if (!shapes.stream().anyMatch(shape -> !engine.hasShapeAssigned(shape, valueNode))) {
+							valueNodeUnknown = true;
 						}
-					}
-					if(!hasOne) {
+					} else if ((!shapes.stream().anyMatch(shape -> engine.hasShapeAssigned(shape, valueNode))
+							&& (!engine.hasAssignment() && !shapes.stream().anyMatch(
+									shape -> hasShape(engine, constraint, focusNode, valueNode, shape,
+											true) == null)))) {
 						engine.createValidationResult(constraint, focusNode, valueNode, () -> "Value has none of the shapes in the sh:or enumeration");
+						continue value;
 					}
+				}
+
+				if (engine.isReporting()) {
+					engine.getReport().getModel().add(constraint.getShapeResource(),
+							valueNodeFailed ? RSH.No : (valueNodeUnknown ? RSH.Unknown : RSH.Yes), focusNode);
 				}
 			}
 		}
