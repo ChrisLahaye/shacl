@@ -35,7 +35,7 @@ class AndConstraintExecutor extends AbstractShapeListConstraintExecutor {
 						} else if (!engine.hasShapeAssigned(shape, valueNode)) {
 							valueNodeUnknown = true;
 						}
-					} else if (!engine.hasNegShapeAssigned(shape, valueNode)
+					} else if (engine.hasNegShapeAssigned(shape, valueNode)
 							|| (!engine.hasAssignment()
 									&& hasShape(engine, constraint, focusNode, valueNode, shape, true) != null)) {
 						engine.createValidationResult(constraint, focusNode, valueNode,
