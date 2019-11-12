@@ -486,6 +486,8 @@ public class ValidationEngine extends AbstractEngine implements ConfigurableEngi
 								.flatMap(focusNode -> this.getReachableNodes(focusNode, fpShapePaths).stream())
 								.collect(Collectors.toList());
 
+						fpNodes.addAll(focusNodes);
+
 						fpNodes.forEach(fpNode -> {
 							if (!assignment.containsKey(fpNode)) {
 								assignment.put(fpNode, new HashMap<RDFNode, Boolean>());
