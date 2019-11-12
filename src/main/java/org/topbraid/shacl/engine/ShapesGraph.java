@@ -85,23 +85,13 @@ public class ShapesGraph {
 	}
 
 	public boolean isShapeCyclic(Shape start, Shape shape, Set<Shape> visited) {
-		if (visited.contains(shape)) {
-			if (start.equals(shape)) {
-				return true;
-			}
-
-			return false;
-		}
-
 		visited.add(shape);
 
 		for (Shape next : getShapeDirectDependencies(shape)) {
-			if (isShapeCyclic(start, next, visited)) {
+			if (start.equals(next) || (!visited.contains(next) && isShapeCyclic(start, next, visited))) {
 				return true;
 			}
 		}
-
-		visited.remove(shape);
 
 		return false;
 	}
