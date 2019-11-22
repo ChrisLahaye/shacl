@@ -12,6 +12,7 @@ import org.topbraid.jenax.util.JenaUtil;
 import org.topbraid.shacl.engine.Constraint;
 import org.topbraid.shacl.validation.AbstractNativeConstraintExecutor;
 import org.topbraid.shacl.validation.ValidationEngine;
+import org.topbraid.shacl.vocabulary.RSH;
 import org.topbraid.shacl.vocabulary.SH;
 
 // Note this is used for both min and max, but min is skipped if max also exists (avoids doing the count twice)
@@ -65,23 +66,51 @@ class QualifiedValueShapeConstraintExecutor extends AbstractNativeConstraintExec
 		}
 		
 		for(RDFNode focusNode : focusNodes) {
-			int count = 0;
-			for(RDFNode valueNode : engine.getValueNodes(constraint, focusNode)) {
-				Model results = hasShape(engine, constraint, focusNode, valueNode, valueShape, true);
-				if(results == null && !hasAnySiblingShape(engine, constraint, focusNode, valueNode)) {
-					count++;
+			int valueNodePositive = 0;
+			int valueNodeNegative = 0;
+
+			Collection<RDFNode> valueNodes = engine.getValueNodes(constraint, focusNode);
+	
+			for (RDFNode valueNode : valueNodes) {
+				if (engine.isReporting()) {
+					if (engine.hasShapeAssigned(valueShape, valueNode)) {
+						valueNodePositive++;
+					} else if (engine.hasNegShapeAssigned(valueShape, valueNode)) {
+						valueNodeNegative++;
+					}
+				} else if (engine.hasShapeAssigned(valueShape, valueNode) || (!engine.hasAssignment() && hasShape(engine, constraint, focusNode, valueNode, valueShape, true) == null)) {
+					valueNodePositive++;
 				}
 			}
-			if(maxCount != null && count > maxCount) {
-				Resource result = engine.createValidationResult(constraint, focusNode, null, () -> "More than " + maxCount + " values have shape " + engine.getLabelFunction().apply(valueShape));
-				result.removeAll(SH.sourceConstraintComponent);
-				result.addProperty(SH.sourceConstraintComponent, SH.QualifiedMaxCountConstraintComponent);
+			
+			if (engine.isReporting()) {
+				if (minCount != null) {
+					engine.getReport().getModel().add(constraint.getShapeResource(),
+							valueNodePositive >= minCount ? RSH.Yes
+									: (valueNodes.size() - valueNodeNegative < minCount ? RSH.No : RSH.Unknown),
+									focusNode);
+				}
+				if (maxCount != null) {
+					engine.getReport().getModel().add(constraint.getShapeResource(),
+							valueNodePositive >= maxCount + 1 ? RSH.No
+									: (valueNodes.size() - valueNodeNegative < maxCount + 1 ? RSH.Yes : RSH.Unknown),
+							focusNode);
+				}
+			} else {
+				if (maxCount != null && valueNodePositive > maxCount) {
+					Resource result = engine.createValidationResult(constraint, focusNode, null, () -> "More than "
+							+ maxCount + " values have shape " + engine.getLabelFunction().apply(valueShape));
+					result.removeAll(SH.sourceConstraintComponent);
+					result.addProperty(SH.sourceConstraintComponent, SH.QualifiedMaxCountConstraintComponent);
+				}
+				if (minCount != null && valueNodePositive < minCount) {
+					Resource result = engine.createValidationResult(constraint, focusNode, null, () -> "Less than "
+							+ minCount + " values have shape " + engine.getLabelFunction().apply(valueShape));
+					result.removeAll(SH.sourceConstraintComponent);
+					result.addProperty(SH.sourceConstraintComponent, SH.QualifiedMinCountConstraintComponent);
+				}
 			}
-			if(minCount != null && count < minCount) {
-				Resource result = engine.createValidationResult(constraint, focusNode, null, () -> "Less than " + minCount + " values have shape " + engine.getLabelFunction().apply(valueShape));
-				result.removeAll(SH.sourceConstraintComponent);
-				result.addProperty(SH.sourceConstraintComponent, SH.QualifiedMinCountConstraintComponent);
-			}
+
 			engine.checkCanceled();
 		}
 		addStatistics(constraint, startTime);
