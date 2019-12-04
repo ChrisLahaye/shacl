@@ -42,7 +42,10 @@ class PropertyConstraintExecutor implements ConstraintExecutor {
 
 	@Override
 	public void executeConstraint(Constraint constraint, ValidationEngine engine, Collection<RDFNode> focusNodes) {
-		System.out.println("-| -| PropertyConstraintExecutor.executeConstraint(" + constraint.toString() + ", _, " + Arrays.toString(focusNodes.toArray()) + ") with value " + constraint.getParameterValue().toString());
+		if (ValidationEngine.debug)
+			System.out.println("-| -| PropertyConstraintExecutor.executeConstraint(" + constraint.toString() + ", _, "
+					+ Arrays.toString(focusNodes.toArray()) + ") with value "
+					+ constraint.getParameterValue().toString());
 
 		Model report = engine.getReport().getModel();
 		SHShape shape = constraint.getShapeResource();

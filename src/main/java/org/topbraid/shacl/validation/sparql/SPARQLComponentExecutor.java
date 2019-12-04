@@ -26,6 +26,7 @@ import org.apache.jena.rdf.model.Statement;
 import org.topbraid.jenax.util.JenaUtil;
 import org.topbraid.shacl.engine.Constraint;
 import org.topbraid.shacl.model.SHParameter;
+import org.topbraid.shacl.validation.ValidationEngine;
 import org.topbraid.shacl.vocabulary.SH;
 
 public class SPARQLComponentExecutor extends AbstractSPARQLExecutor {
@@ -34,7 +35,10 @@ public class SPARQLComponentExecutor extends AbstractSPARQLExecutor {
 	
 	public SPARQLComponentExecutor(Constraint constraint) {
 		super(constraint);
-		System.out.println("-| -| new SPARQLComponentExecutor(" + constraint.toString() +")");
+
+		if (ValidationEngine.debug)
+			System.out.println("-| -| new SPARQLComponentExecutor(" + constraint.toString() + ")");
+
 		if(!SH.NS.equals(constraint.getComponent().getNameSpace())) {
 			Set<String> preBoundVars = new HashSet<>();
 			for(SHParameter param : constraint.getComponent().getParameters()) {

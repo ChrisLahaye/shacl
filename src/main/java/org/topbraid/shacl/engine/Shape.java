@@ -46,6 +46,7 @@ import org.topbraid.shacl.targets.NodeTarget;
 import org.topbraid.shacl.targets.ObjectsOfTarget;
 import org.topbraid.shacl.targets.SubjectsOfTarget;
 import org.topbraid.shacl.targets.Target;
+import org.topbraid.shacl.validation.ValidationEngine;
 import org.topbraid.shacl.vocabulary.SH;
 
 /**
@@ -139,22 +140,27 @@ public class Shape {
 	
 	public List<Constraint> getConstraints() {
 		if(constraints == null) {
-			System.out.println("-> getConstraints()");
+			if (ValidationEngine.debug)
+				System.out.println("-> getConstraints()");
 
 			constraints = new LinkedList<>();
 			Set<SHConstraintComponent> handled = new HashSet<>();
 
 			String shapeName = (shape.isAnon() ? shape.asNode().getBlankNodeLabel() : shape.toString());
-			System.out.println("-| forall (" + shapeName + ", *, *)");
+			if (ValidationEngine.debug)
+				System.out.println("-| forall (" + shapeName + ", *, *)");
 
 			for(Statement s : shape.listProperties().toList()) {
-				System.out.println("-|   (" + shapeName + ", " + s.getPredicate() + ", " + s.getObject() + ")");
+				if (ValidationEngine.debug)
+					System.out.println("-|   (" + shapeName + ", " + s.getPredicate() + ", " + s.getObject() + ")");
 
 				SHConstraintComponent component = shapesGraph.getComponentWithParameter(s.getPredicate());
 				if(component != null && !handled.contains(component)) {
 					List<SHParameter> params = component.getParameters();
 					if(params.size() == 1) {
-						System.out.println("-|   new Constraint(this, " + component.getURI() +", params, " + s.getObject() +")");
+						if (ValidationEngine.debug)
+							System.out.println("-|   new Constraint(this, " + component.getURI() + ", params, "
+									+ s.getObject() + ")");
 
 						Constraint constraint = new Constraint(this, component, params, s.getObject());
 						if(!shapesGraph.isIgnoredConstraint(constraint)) {
@@ -170,7 +176,8 @@ public class Shape {
 					}
 				}
 
-				System.out.println("-|");
+				if (ValidationEngine.debug)
+					System.out.println("-|");
 			}
 		}
 		return constraints;

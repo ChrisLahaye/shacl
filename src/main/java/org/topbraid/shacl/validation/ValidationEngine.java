@@ -34,6 +34,7 @@ import java.util.function.Predicate;
 import java.util.function.Supplier;
 import java.util.stream.Collectors;
 
+import org.apache.commons.lang3.time.StopWatch;
 import org.apache.jena.graph.Node;
 import org.apache.jena.query.Dataset;
 import org.apache.jena.query.QuerySolution;
@@ -86,6 +87,11 @@ public class ValidationEngine extends AbstractEngine implements ConfigurableEngi
 	// The currently active ValidationEngine for cases where no direct pointer can be acquired, e.g. from HasShapeFunction
 	private static ThreadLocal<ValidationEngine> current = new ThreadLocal<>();
 	
+	public static boolean debug = System.getenv().containsKey("DEBUG");
+	public static StopWatch getFpNodesStopWatch = new StopWatch();
+	public static StopWatch assignStopWatch = new StopWatch();
+	public static StopWatch reportStopWatch = new StopWatch();
+
 	public static ValidationEngine getCurrent() {
 		return current.get();
 	}
@@ -406,7 +412,9 @@ public class ValidationEngine extends AbstractEngine implements ConfigurableEngi
 					focusNodes = filteredFocusNodes;
 				}
 				if(!focusNodes.isEmpty()) {
-					System.out.println("Shape " + (++i) + ": " + getLabelFunction().apply(shape.getShapeResource()));
+					if (debug)
+						System.out
+								.println("Shape " + (++i) + ": " + getLabelFunction().apply(shape.getShapeResource()));
 
 					validateNodesAgainstShape(focusNodes.stream().collect(Collectors.toList()),
 							shape.getShapeResource().asNode());
@@ -473,8 +481,9 @@ public class ValidationEngine extends AbstractEngine implements ConfigurableEngi
 				ValidationEngine oldEngine = current.get();
 				current.set(this);
 				try {
-					System.out.println(
-							"validateNodesAgainstShape(" + Arrays.toString(focusNodes.toArray()) + ", " + shape + ")");
+					if (debug)
+						System.out.println("validateNodesAgainstShape(" + Arrays.toString(focusNodes.toArray()) + ", "
+								+ shape + ")");
 
 					if (!hasAssignment() && getShapesGraph().isShapeCyclic(vs)) {
 						HashMap<RDFNode, HashMap<RDFNode, Boolean>> assignment = new HashMap<RDFNode, HashMap<RDFNode, Boolean>>();
@@ -482,9 +491,12 @@ public class ValidationEngine extends AbstractEngine implements ConfigurableEngi
 						List<Shape> fpShapes = getShapesGraph().getShapeDependencies(vs);
 						List<Resource> fpShapePaths = fpShapes.stream().filter(fpShape -> !fpShape.isNodeShape())
 								.map(fpShape -> fpShape.getPath()).distinct().collect(Collectors.toList());
+
+						getFpNodesStopWatch.start();
 						List<RDFNode> fpNodes = focusNodes.stream()
 								.flatMap(focusNode -> this.getReachableNodes(focusNode, fpShapePaths).stream())
 								.collect(Collectors.toList());
+						getFpNodesStopWatch.stop();
 
 						fpNodes.addAll(focusNodes);
 
@@ -494,6 +506,7 @@ public class ValidationEngine extends AbstractEngine implements ConfigurableEngi
 							}
 						});
 
+						assignStopWatch.start();
 						fp: while (true) {
 							HashMap<RDFNode, HashMap<RDFNode, Boolean>> prevAssignment = new HashMap<RDFNode, HashMap<RDFNode, Boolean>>();
 
@@ -508,25 +521,30 @@ public class ValidationEngine extends AbstractEngine implements ConfigurableEngi
 								if (fpV.size() == 0)
 									continue;
 
-								System.out.println("!! >> " + fpShape + " " + fpV);
+								if (debug)
+									System.out.println("!! >> " + fpShape + " " + fpV);
 
-									ValidationEngine newEngine = ValidationEngineFactory.get().create(getDataset(),
-											getShapesGraphURI(), getShapesGraph(), null);
-									newEngine.setAssignment(prevAssignment);
+								System.out.println("!! >> " + fpShape + " " + fpV.size());
+
+								ValidationEngine newEngine = ValidationEngineFactory.get().create(getDataset(),
+										getShapesGraphURI(), getShapesGraph(), null);
+								newEngine.setAssignment(prevAssignment);
 								newEngine.setReporting(true);
-									if (ValidationEngine.getCurrent() != null) {
-										newEngine.setConfiguration(ValidationEngine.getCurrent().getConfiguration());
-									}
+								if (ValidationEngine.getCurrent() != null) {
+									newEngine.setConfiguration(ValidationEngine.getCurrent().getConfiguration());
+								}
 
-									for (Constraint constraint : fpShape.getConstraints()) {
+								for (Constraint constraint : fpShape.getConstraints()) {
 									newEngine.validateNodesAgainstConstraint(fpV, constraint);
-									}
+								}
 								newEngine.setReporting(false);
 
-									Model results = newEngine.getReport().getModel();
+								Model results = newEngine.getReport().getModel();
 
+								if (debug) {
 									System.out.println(ModelPrinter.get().print(results));
-								System.out.println("!! << " + fpShape + " " + fpV);
+									System.out.println("!! << " + fpShape + " " + fpV);
+								}
 
 								for (RDFNode fpNode : fpV) {
 									// Check non-reference constraints
@@ -546,7 +564,9 @@ public class ValidationEngine extends AbstractEngine implements ConfigurableEngi
 												fpNode);
 
 										if (failed.hasNext()) {
-											System.out.println("!! :( Reference constraint violated: " + failed.next());
+											if (debug)
+												System.out.println(
+														"!! :( Reference constraint violated: " + failed.next());
 
 											assignment.get(fpNode).put(fpShape.getShapeResource(), false);
 										} else {
@@ -554,25 +574,34 @@ public class ValidationEngine extends AbstractEngine implements ConfigurableEngi
 													RSH.Unknown, fpNode);
 
 											if (unknown.hasNext()) {
-												System.out.println(
+												if (debug)
+													System.out.println(
 														"!! :( Reference constraint unknown: " + unknown.next());
 											} else {
-												System.out.println("!! :) Success " + fpNode);
+												if (debug)
+													System.out.println("!! :) Success " + fpNode);
+
 												assignment.get(fpNode).put(fpShape.getShapeResource(), true);
 											}
 										}
 									} else {
-										System.out.println("!! :( Non-reference constraint violated " + fpNode);
+										if (debug)
+											System.out.println("!! :( Non-reference constraint violated " + fpNode);
+
 										assignment.get(fpNode).put(fpShape.getShapeResource(), false);
 									}
 								}
+
+								if (debug)
 									System.out.println();
+							}
+
+							if (debug) {
+								System.out.println("!! < Iteration");
+
+								for (Map.Entry<RDFNode, HashMap<RDFNode, Boolean>> entry : assignment.entrySet()) {
+									System.out.println("!! - " + entry.getKey() + ": " + entry.getValue());
 								}
-
-							System.out.println("!! < Iteration");
-
-							for (Map.Entry<RDFNode, HashMap<RDFNode, Boolean>> entry : assignment.entrySet()) {
-								System.out.println("!! - " + entry.getKey() + ": " + entry.getValue());
 							}
 
 							for (Map.Entry<RDFNode, HashMap<RDFNode, Boolean>> entry : assignment.entrySet()) {
@@ -583,6 +612,7 @@ public class ValidationEngine extends AbstractEngine implements ConfigurableEngi
 
 							break fp;
 						}
+						assignStopWatch.stop();
 
 						List<RDFNode> failedNodes = focusNodes.stream()
 								.filter(focusNode -> assignment.get(focusNode).containsKey(vs.getShapeResource())
@@ -591,11 +621,17 @@ public class ValidationEngine extends AbstractEngine implements ConfigurableEngi
 
 						if (failedNodes.size() > 0) {
 							setAssignment(assignment);
-							System.out.println(failedNodes);
+
+							if (debug)
+								System.out.println(failedNodes);
+
+							reportStopWatch.start();
 							for (Constraint constraint : vs.getConstraints()) {
 								validateNodesAgainstConstraint(failedNodes, constraint);
 							}
+							reportStopWatch.stop();
 						}
+
 						return report;
 					}
 
@@ -653,11 +689,14 @@ public class ValidationEngine extends AbstractEngine implements ConfigurableEngi
 			return;
 		}
 
-		System.out.println("-> validateNodesAgainstConstraint(" + Arrays.toString(focusNodes.toArray()) + ", " + constraint.toString() + ")");
+		if (debug)
+			System.out.println("-> validateNodesAgainstConstraint(" + Arrays.toString(focusNodes.toArray()) + ", "
+					+ constraint.toString() + ")");
 
 		ConstraintExecutor executor = constraint.getExecutor();
 		if(executor != null) {
-			System.out.println("-| -> executor = constraint.getExecutor() = " + executor.toString());
+			if (debug)
+				System.out.println("-| -> executor = constraint.getExecutor() = " + executor.toString());
 
 			if(SHACLPreferences.isProduceFailuresMode()) {
 				try {
@@ -669,7 +708,8 @@ public class ValidationEngine extends AbstractEngine implements ConfigurableEngi
 				}
 			}
 			else {
-				System.out.println("-| -> executor.executeConstraint()");
+				if (debug)
+					System.out.println("-| -> executor.executeConstraint()");
 
 				executor.executeConstraint(constraint, this, focusNodes);
 			}
@@ -678,7 +718,8 @@ public class ValidationEngine extends AbstractEngine implements ConfigurableEngi
 			FailureLog.get().logWarning("No suitable validator found for constraint " + constraint);
 		}
 
-		System.out.println();
+		if (debug)
+			System.out.println();
 	}
 
 	public void setAssignment(HashMap<RDFNode, HashMap<RDFNode, Boolean>> assignment) {

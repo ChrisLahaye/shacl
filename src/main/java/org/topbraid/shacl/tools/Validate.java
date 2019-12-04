@@ -19,6 +19,8 @@ package org.topbraid.shacl.tools;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.PrintStream;
+import java.time.Duration;
+import java.time.Instant;
 
 import org.apache.jena.rdf.model.Model;
 import org.apache.jena.rdf.model.Resource;
@@ -49,13 +51,20 @@ public class Validate extends AbstractTool {
 	
 	
 	private void run(String[] args) throws IOException {
+		Instant start = Instant.now();
+
 		Model dataModel = getDataModel(args);
 		Model shapesModel = getShapesModel(args);
+
 		if(shapesModel == null) {
 			shapesModel = dataModel;
 		}
+
+		System.out.printf("loading: %s ms\n", Duration.between(start, Instant.now()).toMillis());
+
 		Resource report = ValidationUtil.validateModel(dataModel, shapesModel, true);
-		report.getModel().write(System.out, FileUtils.langTurtle);
+
+//		report.getModel().write(System.out, FileUtils.langTurtle);
 
 		if(report.hasProperty(SH.conforms, JenaDatatypes.FALSE)) {
 			// See https://github.com/TopQuadrant/shacl/issues/56

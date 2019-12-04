@@ -22,6 +22,7 @@ import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.Stack;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.Predicate;
 
@@ -47,6 +48,7 @@ import org.topbraid.shacl.model.SHConstraintComponent;
 import org.topbraid.shacl.model.SHFactory;
 import org.topbraid.shacl.model.SHShape;
 import org.topbraid.shacl.util.SHACLSystemModel;
+import org.topbraid.shacl.validation.ValidationEngine;
 import org.topbraid.shacl.vocabulary.DASH;
 import org.topbraid.shacl.vocabulary.SH;
 
@@ -98,20 +100,23 @@ public class ShapesGraph {
 
 	public List<Shape> getShapeDependencies(Shape shape) {
 		HashSet<Shape> visited = new HashSet<Shape>();
+		Stack<Shape> stack = new Stack<Shape>();
 
-		getShapeDependencies(shape, visited);
+		getShapeDependencies(shape, visited, stack);
 
-		return new LinkedList<Shape>(visited);
+		return new LinkedList<Shape>(stack);
 	}
 
-	public void getShapeDependencies(Shape shape, Set<Shape> visited) {
+	public void getShapeDependencies(Shape shape, Set<Shape> visited, Stack<Shape> stack) {
 		visited.add(shape);
 
 		for (Shape next : getShapeDirectDependencies(shape)) {
 			if (!visited.contains(next)) {
-				getShapeDependencies(next, visited);
+				getShapeDependencies(next, visited, stack);
 			}
 		}
+
+		stack.push(shape);
 	}
 	
 	/**
@@ -120,28 +125,38 @@ public class ShapesGraph {
 	 */
 	public ShapesGraph(Model shapesModel) {
 		this.shapesModel = shapesModel;
+
+		getRootShapes().forEach(shape -> {
+			System.out.println(shape + " \t " + getShapeDependencies(shape));
+		});
 	}
 
 	
 	public SHConstraintComponent getComponentWithParameter(Property parameter) {
 		return parametersMap.computeIfAbsent(parameter, p -> {
-			System.out.println("-|   -> component = getComponentWithParameter(" + parameter.getURI() + ")");
-			System.out.println("-|   -| forall (*, sh:path, " + parameter.getURI() + ")");
+			if (ValidationEngine.debug) {
+				System.out.println("-|   -> component = getComponentWithParameter(" + parameter.getURI() + ")");
+				System.out.println("-|   -| forall (*, sh:path, " + parameter.getURI() + ")");
+			}
 
 			StmtIterator it = shapesModel.listStatements(null, SH.path, parameter);
 			while(it.hasNext()) {
 				Resource param = it.next().getSubject();
 
-				System.out.println("-|   -|   (" + param.getURI() +", sh:path, " + parameter.getURI() + ")");
+				if (ValidationEngine.debug)
+					System.out.println("-|   -|   (" + param.getURI() + ", sh:path, " + parameter.getURI() + ")");
 
 				if(!param.hasProperty(SH.optional, JenaDatatypes.TRUE)) {
-					System.out.println("-|   -|   forall (*, sh:parameter, " + param.getURI() + ")");
+					if (ValidationEngine.debug)
+						System.out.println("-|   -|   forall (*, sh:parameter, " + param.getURI() + ")");
 
 					StmtIterator i2 = shapesModel.listStatements(null, SH.parameter, param);
 					while(i2.hasNext()) {
 						Resource r = i2.next().getSubject();
 
-						System.out.println("-|   -|     (" + r.getURI() +", sh:parameter, " + param.getURI() + ")");
+						if (ValidationEngine.debug)
+							System.out
+									.println("-|   -|     (" + r.getURI() + ", sh:parameter, " + param.getURI() + ")");
 
 						if(JenaUtil.hasIndirectType(r, SH.ConstraintComponent)) {
 							i2.close();

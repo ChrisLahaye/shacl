@@ -17,6 +17,8 @@
 package org.topbraid.shacl.validation;
 
 import java.net.URI;
+import java.time.Duration;
+import java.time.Instant;
 
 import org.apache.jena.graph.Graph;
 import org.apache.jena.graph.compose.MultiUnion;
@@ -116,9 +118,26 @@ public class ValidationUtil {
 
 		ValidationEngine engine = createValidationEngine(dataModel, shapesModel, configuration);
 		engine.setConfiguration(configuration);
+
 		try {
+			Instant start = Instant.now();
+
 			engine.applyEntailments();
-			return engine.validateAll();
+
+			Instant halfway = Instant.now();
+
+			System.out.flush();
+
+			Resource report = engine.validateAll();
+
+			System.out.println();
+			System.out.printf("inference: %s ms\n", Duration.between(start, halfway).toMillis());
+			System.out.printf("validation: %s ms\n", Duration.between(halfway, Instant.now()).toMillis());
+			System.out.printf("- getFpNodes: %s ms\n", ValidationEngine.getFpNodesStopWatch.getTime());
+			System.out.printf("- assign: %s ms\n", ValidationEngine.assignStopWatch.getTime());
+			System.out.printf("- report: %s ms\n", ValidationEngine.reportStopWatch.getTime());
+
+			return report;
 		}
 		catch(InterruptedException ex) {
 			return null;

@@ -83,9 +83,11 @@ public abstract class AbstractSPARQLExecutor implements ConstraintExecutor {
 	
 	@Override
 	public void executeConstraint(Constraint constraint, ValidationEngine engine, Collection<RDFNode> focusNodes) {
-		System.out.println("-| -| AbstractSPARQLExecutor.executeConstraint(" + constraint.toString() + ")");
-		System.out.println(">>>>> AbstractSPARQLExecutor.executeConstraint(" + constraint.toString() + ")");
-		System.out.println(constraint.getShapeResource().getURI());
+		if (ValidationEngine.debug) {
+			System.out.println("-| -| AbstractSPARQLExecutor.executeConstraint(" + constraint.toString() + ")");
+			System.out.println(">>>>> AbstractSPARQLExecutor.executeConstraint(" + constraint.toString() + ")");
+			System.out.println(constraint.getShapeResource().getURI());
+		}
 
 		QuerySolutionMap bindings = new QuerySolutionMap();
 		addBindings(constraint, bindings);
@@ -117,12 +119,14 @@ public abstract class AbstractSPARQLExecutor implements ConstraintExecutor {
 				engine.checkCanceled();
 			}
 
-			Iterator<String> varNamesx = bindings.varNames();
-			if(varNamesx.hasNext()) {
-				queryString += "\nBindings:";
-				while(varNamesx.hasNext()) {
-					String varName = varNamesx.next();
-					queryString += "\n- ?" + varName + ": " + bindings.get(varName);
+			if (ValidationEngine.debug) {
+				Iterator<String> varNamesx = bindings.varNames();
+				if (varNamesx.hasNext()) {
+					queryString += "\nBindings:";
+					while (varNamesx.hasNext()) {
+						String varName = varNamesx.next();
+						queryString += "\n- ?" + varName + ": " + bindings.get(varName);
+					}
 				}
 			}
 
@@ -147,9 +151,11 @@ public abstract class AbstractSPARQLExecutor implements ConstraintExecutor {
 			HasShapeFunction.setResultsModel(oldNestedResults);
 		}
 
-		System.out.println("Query:");
-		System.out.println(queryString);
-		System.out.println("<<<<< AbstractSPARQLExecutor.executeConstraint(" + constraint.toString() + ")");
+		if (ValidationEngine.debug) {
+			System.out.println("Query:");
+			System.out.println(queryString);
+			System.out.println("<<<<< AbstractSPARQLExecutor.executeConstraint(" + constraint.toString() + ")");
+		}
 	}
 
 	
@@ -172,8 +178,10 @@ public abstract class AbstractSPARQLExecutor implements ConstraintExecutor {
 
 	private void executeSelectQuery(ValidationEngine engine, Constraint constraint, Resource messageHolder, Model nestedResults,
 			RDFNode focusNode, QueryExecution qexec, QuerySolution bindings) {
-		System.out.println(">>>>>>>> AbstractSPARQLExecutor.executeSelectQuery");
-		System.out.println(qexec.getQuery().toString());
+		if (ValidationEngine.debug) {
+			System.out.println(">>>>>>>> AbstractSPARQLExecutor.executeSelectQuery");
+			System.out.println(qexec.getQuery().toString());
+		}
 
 		ResultSet rs = qexec.execSelect();
 		
@@ -187,8 +195,13 @@ public abstract class AbstractSPARQLExecutor implements ConstraintExecutor {
 				while(rs.hasNext()) {
 					QuerySolution sol = rs.next();
 					RDFNode thisValue = sol.get(SH.thisVar.getVarName());
-					System.out.println("Solution:");
-					sol.varNames().forEachRemaining(z -> { System.out.println(z + " = " + sol.get(z)); });
+
+					if (ValidationEngine.debug) {
+						System.out.println("Solution:");
+						sol.varNames().forEachRemaining(z -> {
+							System.out.println(z + " = " + sol.get(z));
+						});
+					}
 
 					if(thisValue != null) {
 						Resource resultType = SH.ValidationResult;
@@ -265,8 +278,10 @@ public abstract class AbstractSPARQLExecutor implements ConstraintExecutor {
 		finally {
 			qexec.close();
 
-			System.out.println("<<<<<<< AbstractSPARQLExecutor.executeSelectQuery");
-			System.out.flush();
+			if (ValidationEngine.debug) {
+				System.out.println("<<<<<<< AbstractSPARQLExecutor.executeSelectQuery");
+				System.out.flush();
+			}
 		}
 	}
 
