@@ -523,8 +523,8 @@ public class ValidationEngine extends AbstractEngine implements ConfigurableEngi
 
 								if (debug)
 									System.out.println("!! >> " + fpShape + " " + fpV);
-
-								System.out.println("!! >> " + fpShape + " " + fpV.size());
+								else
+									System.out.println("!! >> " + fpShape + " " + fpV.size());
 
 								ValidationEngine newEngine = ValidationEngineFactory.get().create(getDataset(),
 										getShapesGraphURI(), getShapesGraph(), null);
@@ -540,7 +540,6 @@ public class ValidationEngine extends AbstractEngine implements ConfigurableEngi
 								newEngine.setReporting(false);
 
 								Model results = newEngine.getReport().getModel();
-
 								if (debug) {
 									System.out.println(ModelPrinter.get().print(results));
 									System.out.println("!! << " + fpShape + " " + fpV);
@@ -548,11 +547,11 @@ public class ValidationEngine extends AbstractEngine implements ConfigurableEngi
 
 								for (RDFNode fpNode : fpV) {
 									// Check non-reference constraints
+
 									Boolean result = true;
-									for (Resource r : results.listSubjectsWithProperty(RDF.type, SH.ValidationResult)
-											.toList()) {
-										if (!results.contains(null, SH.detail, r)
-												&& r.hasProperty(SH.focusNode, fpNode)) {
+									for (Resource r : results.listSubjectsWithProperty(SH.focusNode, fpNode).toList()) {
+										if (r.hasProperty(RDF.type, SH.ValidationResult)
+												&& !results.contains(null, SH.detail, r)) {
 											result = false;
 											break;
 										}
@@ -609,7 +608,6 @@ public class ValidationEngine extends AbstractEngine implements ConfigurableEngi
 									continue fp;
 								}
 							}
-
 							break fp;
 						}
 						assignStopWatch.stop();
@@ -631,7 +629,6 @@ public class ValidationEngine extends AbstractEngine implements ConfigurableEngi
 							}
 							reportStopWatch.stop();
 						}
-
 						return report;
 					}
 
