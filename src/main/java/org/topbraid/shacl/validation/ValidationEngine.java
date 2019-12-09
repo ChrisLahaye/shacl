@@ -275,30 +275,56 @@ public class ValidationEngine extends AbstractEngine implements ConfigurableEngi
 		}
 	}
 
-	public List<RDFNode> getReachableNodes(RDFNode node, List<Resource> paths) {
-		HashSet<RDFNode> visited = new HashSet<RDFNode>();
+	public List<RDFNode> getFixedPointNodes(Shape shape, List<RDFNode> focusNodes) {
+		HashMap<RDFNode, HashSet<Shape>> visited = new HashMap<RDFNode, HashSet<Shape>>();
 
-		getReachableNodes(node, paths, visited);
+		for (RDFNode focusNode : focusNodes) {
+			if (!visited.containsKey(focusNode) || !visited.get(focusNode).contains(shape)) {
+				getFixedPointNodes(shape, focusNode, visited);
+			}
+		}
 
-		return new LinkedList<RDFNode>(visited);
+		return new LinkedList<RDFNode>(visited.keySet());
 	}
 
-	public void getReachableNodes(RDFNode node, List<Resource> paths, Set<RDFNode> visited) {
-		visited.add(node);
+	public void getFixedPointNodes(Shape shape, RDFNode focusNode, HashMap<RDFNode, HashSet<Shape>> visited) {
+		if (!visited.containsKey(focusNode))
+			visited.put(focusNode, new HashSet<Shape>(Arrays.asList(shape)));
+		else
+			visited.get(focusNode).add(shape);
+		
+		Iterator<RDFNode> valueNodes;
+		
+		if (shape.isNodeShape()) {
+			valueNodes = Arrays.asList(focusNode).iterator();
+		} else {
+			if (focusNode instanceof Resource) {
+				Resource path = shape.getPath();
 
-		if (node instanceof Resource) {
-			paths.forEach(path -> {
-				Iterator<RDFNode> list = path.isAnon()
-						? evaluateJenaPath(node,
+				valueNodes = path.isAnon()
+						? evaluateJenaPath(focusNode,
 								(Path) SHACLPaths.getJenaPath(SHACLPaths.getPathString(path), path.getModel()))
 										.iterator()
-						: node.asResource().listProperties(JenaUtil.asProperty(path)).mapWith(x -> x.getObject());
+						: focusNode.asResource().listProperties(JenaUtil.asProperty(path)).mapWith(x -> x.getObject());
+			} else {
+				valueNodes = Collections.emptyIterator();
+			}
+		}
+		
+		List<Shape> dependencies = shapesGraph.getShapeDependencies(shape);
 
-				list.forEachRemaining(next -> {
-					if (!visited.contains(next)) {
-						getReachableNodes(next, paths, visited);
+		if (dependencies.size() > 0) {
+			valueNodes.forEachRemaining(valueNode -> {
+				dependencies.forEach(refShape -> {
+					if (!visited.containsKey(valueNode) || !visited.get(valueNode).contains(refShape)) {
+						getFixedPointNodes(refShape, valueNode, visited);
 					}
 				});
+			});
+		} else {
+			valueNodes.forEachRemaining(valueNode -> {
+				if (!visited.containsKey(valueNode))
+					visited.put(valueNode, new HashSet<Shape>());
 			});
 		}
 	}
@@ -493,12 +519,8 @@ public class ValidationEngine extends AbstractEngine implements ConfigurableEngi
 								.map(fpShape -> fpShape.getPath()).distinct().collect(Collectors.toList());
 
 						getFpNodesStopWatch.start();
-						List<RDFNode> fpNodes = focusNodes.stream()
-								.flatMap(focusNode -> this.getReachableNodes(focusNode, fpShapePaths).stream())
-								.collect(Collectors.toList());
+						List<RDFNode> fpNodes = this.getFixedPointNodes(vs, focusNodes);
 						getFpNodesStopWatch.stop();
-
-						fpNodes.addAll(focusNodes);
 
 						fpNodes.forEach(fpNode -> {
 							if (!assignment.containsKey(fpNode)) {
@@ -732,11 +754,13 @@ public class ValidationEngine extends AbstractEngine implements ConfigurableEngi
 	}
 
 	public boolean hasShapeAssigned(RDFNode shape, RDFNode node) {
-		return hasAssignment() && assignment.get(node).containsKey(shape) && assignment.get(node).get(shape);
+		return hasAssignment() && assignment.containsKey(node) && assignment.get(node).containsKey(shape)
+				&& assignment.get(node).get(shape);
 	}
 
 	public boolean hasNegShapeAssigned(RDFNode shape, RDFNode node) {
-		return hasAssignment() && assignment.get(node).containsKey(shape) && !assignment.get(node).get(shape);
+		return hasAssignment() && assignment.containsKey(node) && assignment.get(node).containsKey(shape)
+				&& !assignment.get(node).get(shape);
 	}
 
 

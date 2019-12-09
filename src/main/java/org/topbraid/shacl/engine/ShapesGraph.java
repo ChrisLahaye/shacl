@@ -209,7 +209,7 @@ public class ShapesGraph {
 		return rootShapes;
 	}
 	
-	private List<Shape> getShapeDirectDependencies(Shape shape) {
+	public List<Shape> getShapeDirectDependencies(Shape shape) {
 		if (shapeDependencies.containsKey(shape)) {
 			return shapeDependencies.get(shape);
 		}
