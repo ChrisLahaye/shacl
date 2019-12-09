@@ -126,16 +126,16 @@ public class ValidationUtil {
 
 			Instant halfway = Instant.now();
 
-			System.out.flush();
-
 			Resource report = engine.validateAll();
 
-			System.out.println();
-			System.out.printf("inference: %s ms\n", Duration.between(start, halfway).toMillis());
-			System.out.printf("validation: %s ms\n", Duration.between(halfway, Instant.now()).toMillis());
-			System.out.printf("- getFpNodes: %s ms\n", ValidationEngine.getFpNodesStopWatch.getTime());
-			System.out.printf("- assign: %s ms\n", ValidationEngine.assignStopWatch.getTime());
-			System.out.printf("- report: %s ms\n", ValidationEngine.reportStopWatch.getTime());
+			if (System.getenv().containsKey("MEASURE")) {
+				System.out.println();
+				System.out.printf("inference: %s ms\n", Duration.between(start, halfway).toMillis());
+				System.out.printf("validation: %s ms\n", Duration.between(halfway, Instant.now()).toMillis());
+				System.out.printf("- getFpNodes: %s ms\n", ValidationEngine.getFpNodesStopWatch.getTime());
+				System.out.printf("- assign: %s ms\n", ValidationEngine.assignStopWatch.getTime());
+				System.out.printf("- report: %s ms\n", ValidationEngine.reportStopWatch.getTime());
+			}
 
 			return report;
 		}
