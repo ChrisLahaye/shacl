@@ -75,8 +75,14 @@ class QualifiedValueShapeConstraintExecutor extends AbstractNativeConstraintExec
 				if (engine.isReporting()) {
 					if (engine.hasShapeAssigned(valueShape, valueNode)) {
 						valueNodePositive++;
+
+						if (maxCount != null && valueNodePositive >= maxCount + 1)
+							break;
 					} else if (engine.hasNegShapeAssigned(valueShape, valueNode)) {
 						valueNodeNegative++;
+
+						if (minCount != null && valueNodes.size() - valueNodeNegative < minCount)
+							break;
 					}
 				} else if (engine.hasShapeAssigned(valueShape, valueNode) || (!engine.hasAssignment() && hasShape(engine, constraint, focusNode, valueNode, valueShape, true) == null)) {
 					valueNodePositive++;
