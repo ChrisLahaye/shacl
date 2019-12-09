@@ -125,10 +125,6 @@ public class ShapesGraph {
 	 */
 	public ShapesGraph(Model shapesModel) {
 		this.shapesModel = shapesModel;
-
-		getRootShapes().forEach(shape -> {
-			System.out.println(shape + " \t " + getShapeDependencies(shape));
-		});
 	}
 
 	
