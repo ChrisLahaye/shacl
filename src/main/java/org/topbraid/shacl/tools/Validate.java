@@ -25,6 +25,7 @@ import java.time.Instant;
 import org.apache.jena.rdf.model.Model;
 import org.apache.jena.rdf.model.Resource;
 import org.apache.jena.util.FileUtils;
+import org.apache.jena.vocabulary.RDF;
 import org.topbraid.jenax.util.JenaDatatypes;
 import org.topbraid.shacl.validation.ValidationUtil;
 import org.topbraid.shacl.vocabulary.SH;
@@ -66,8 +67,12 @@ public class Validate extends AbstractTool {
 
 		Resource report = ValidationUtil.validateModel(dataModel, shapesModel, true);
 
-		if (!measure)
+		if (measure)
+			System.out.printf("validation results: %d\n",
+					report.getModel().listStatements(null, RDF.type, SH.ValidationResult).toList().size());
+		else
 			report.getModel().write(System.out, FileUtils.langTurtle);
+		
 
 		if(report.hasProperty(SH.conforms, JenaDatatypes.FALSE)) {
 			// See https://github.com/TopQuadrant/shacl/issues/56
