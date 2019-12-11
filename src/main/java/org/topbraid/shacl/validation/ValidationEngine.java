@@ -275,56 +275,54 @@ public class ValidationEngine extends AbstractEngine implements ConfigurableEngi
 		}
 	}
 
-	public List<RDFNode> getFixedPointNodes(Shape shape, List<RDFNode> focusNodes) {
-		HashMap<RDFNode, HashSet<Shape>> visited = new HashMap<RDFNode, HashSet<Shape>>();
+	public HashMap<Shape, HashSet<RDFNode>> getFixedPointNodes(Shape shape, List<RDFNode> focusNodes) {
+		HashMap<Shape, HashSet<RDFNode>> visited = new HashMap<Shape, HashSet<RDFNode>>();
 
 		for (RDFNode focusNode : focusNodes) {
-			if (!visited.containsKey(focusNode) || !visited.get(focusNode).contains(shape)) {
+			if (!visited.containsKey(shape) || !visited.get(shape).contains(focusNode)) {
 				getFixedPointNodes(shape, focusNode, visited);
 			}
 		}
 
-		return new LinkedList<RDFNode>(visited.keySet());
+		return visited;
 	}
 
-	public void getFixedPointNodes(Shape shape, RDFNode focusNode, HashMap<RDFNode, HashSet<Shape>> visited) {
-		if (!visited.containsKey(focusNode))
-			visited.put(focusNode, new HashSet<Shape>(Arrays.asList(shape)));
+	public void getFixedPointNodes(Shape shape, RDFNode focusNode, HashMap<Shape, HashSet<RDFNode>> visited) {
+		if (!visited.containsKey(shape))
+			visited.put(shape, new HashSet<RDFNode>(Arrays.asList(focusNode)));
 		else
-			visited.get(focusNode).add(shape);
+			visited.get(shape).add(focusNode);
 		
-		Iterator<RDFNode> valueNodes;
-		
-		if (shape.isNodeShape()) {
-			valueNodes = Arrays.asList(focusNode).iterator();
-		} else {
-			if (focusNode instanceof Resource) {
-				Resource path = shape.getPath();
 
-				valueNodes = path.isAnon()
-						? evaluateJenaPath(focusNode,
-								(Path) SHACLPaths.getJenaPath(SHACLPaths.getPathString(path), path.getModel()))
-										.iterator()
-						: focusNode.asResource().listProperties(JenaUtil.asProperty(path)).mapWith(x -> x.getObject());
-			} else {
-				valueNodes = Collections.emptyIterator();
-			}
-		}
-		
 		List<Shape> dependencies = shapesGraph.getShapeDependencies(shape);
 
 		if (dependencies.size() > 0) {
+			Iterator<RDFNode> valueNodes;
+
+			if (shape.isNodeShape()) {
+				valueNodes = Arrays.asList(focusNode).iterator();
+			} else {
+				if (focusNode instanceof Resource) {
+					Resource path = shape.getPath();
+
+					valueNodes = path.isAnon()
+							? evaluateJenaPath(focusNode,
+									(Path) SHACLPaths.getJenaPath(SHACLPaths.getPathString(path), path.getModel()))
+											.iterator()
+							: focusNode.asResource().listProperties(JenaUtil.asProperty(path))
+									.mapWith(x -> x.getObject());
+				} else {
+					valueNodes = Collections.emptyIterator();
+				}
+			}
+		
+
 			valueNodes.forEachRemaining(valueNode -> {
 				dependencies.forEach(refShape -> {
-					if (!visited.containsKey(valueNode) || !visited.get(valueNode).contains(refShape)) {
+					if (!visited.containsKey(refShape) || !visited.get(refShape).contains(valueNode)) {
 						getFixedPointNodes(refShape, valueNode, visited);
 					}
 				});
-			});
-		} else {
-			valueNodes.forEachRemaining(valueNode -> {
-				if (!visited.containsKey(valueNode))
-					visited.put(valueNode, new HashSet<Shape>());
 			});
 		}
 	}
@@ -519,13 +517,16 @@ public class ValidationEngine extends AbstractEngine implements ConfigurableEngi
 								.map(fpShape -> fpShape.getPath()).distinct().collect(Collectors.toList());
 
 						getFpNodesStopWatch.start();
-						List<RDFNode> fpNodes = this.getFixedPointNodes(vs, focusNodes);
+
+						HashMap<Shape, HashSet<RDFNode>> fpNodes = this.getFixedPointNodes(vs, focusNodes);
 						getFpNodesStopWatch.stop();
 
-						fpNodes.forEach(fpNode -> {
-							if (!assignment.containsKey(fpNode)) {
-								assignment.put(fpNode, new HashMap<RDFNode, Boolean>());
-							}
+						fpNodes.values().forEach(nodes -> {
+							nodes.forEach(fpNode -> {
+								if (!assignment.containsKey(fpNode)) {
+									assignment.put(fpNode, new HashMap<RDFNode, Boolean>());
+								}
+							});
 						});
 
 						assignStopWatch.start();
@@ -537,7 +538,7 @@ public class ValidationEngine extends AbstractEngine implements ConfigurableEngi
 							});
 
 							for (Shape fpShape : fpShapes) {
-								List<RDFNode> fpV = fpNodes.stream().filter(
+								List<RDFNode> fpV = fpNodes.get(fpShape).stream().filter(
 										fpNode -> !prevAssignment.get(fpNode).containsKey(fpShape.getShapeResource()))
 										.collect(Collectors.toList());
 								if (fpV.size() == 0)
