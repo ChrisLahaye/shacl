@@ -1,13 +1,15 @@
 @prefix ex: <http://example.org#> .
 @prefix sh: <http://www.w3.org/ns/shacl#> .
 
-ex:v0 ex:P ex:v0 .
+ex:v0 ex:P ex:v1 .
+ex:v1 ex:P ex:v2 .
+ex:v2 ex:Q ex:v3 .
 
 ex:s0
         a sh:NodeShape ;
         sh:targetNode ex:v0 ;
         sh:property [
-                sh:path ex:P ;
+                sh:path ( ex:P ex:P ) ;
                 sh:minCount 1 ;
 				sh:node ex:s1 ;
         ] .
@@ -15,7 +17,6 @@ ex:s0
 ex:s1
         a sh:NodeShape ;
         sh:property [
-                sh:path ex:P ;
-                sh:node ex:s1 ;
-                sh:minCount 1;
+                sh:path ex:Q ;
+                sh:minCount 1 ;
         ] .
