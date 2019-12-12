@@ -315,7 +315,6 @@ public class ValidationEngine extends AbstractEngine implements ConfigurableEngi
 					valueNodes = Collections.emptyIterator();
 				}
 			}
-		
 
 			valueNodes.forEachRemaining(valueNode -> {
 				dependencies.forEach(refShape -> {
@@ -568,51 +567,42 @@ public class ValidationEngine extends AbstractEngine implements ConfigurableEngi
 									System.out.println("!! << " + fpShape + " " + fpV);
 								}
 
-								for (RDFNode fpNode : fpV) {
-									// Check non-reference constraints
+								HashSet<RDFNode> answered = new HashSet<RDFNode>();
 
-									Boolean result = true;
-									for (Resource r : results.listSubjectsWithProperty(SH.focusNode, fpNode).toList()) {
-										if (r.hasProperty(RDF.type, SH.ValidationResult)
-												&& !results.contains(null, SH.detail, r)) {
-											result = false;
-											break;
-										}
-									}
+								for (Resource r : results.listSubjectsWithProperty(RDF.type, SH.ValidationResult)
+										.toList()) {
+									RDFNode fpNode = r.getProperty(SH.focusNode).getObject();
 
-									if (result) {
-										// Check reference constraints
-										StmtIterator failed = results.listStatements(fpShape.getShapeResource(), RSH.No,
-												fpNode);
+									if (debug)
+										System.out.println("!! :( Non-reference constraint violated " + fpNode);
 
-										if (failed.hasNext()) {
-											if (debug)
-												System.out.println(
-														"!! :( Reference constraint violated: " + failed.next());
-
-											assignment.get(fpNode).put(fpShape.getShapeResource(), false);
-										} else {
-											StmtIterator unknown = results.listStatements(fpShape.getShapeResource(),
-													RSH.Unknown, fpNode);
-
-											if (unknown.hasNext()) {
-												if (debug)
-													System.out.println(
-														"!! :( Reference constraint unknown: " + unknown.next());
-											} else {
-												if (debug)
-													System.out.println("!! :) Success " + fpNode);
-
-												assignment.get(fpNode).put(fpShape.getShapeResource(), true);
-											}
-										}
-									} else {
-										if (debug)
-											System.out.println("!! :( Non-reference constraint violated " + fpNode);
-
-										assignment.get(fpNode).put(fpShape.getShapeResource(), false);
-									}
+									assignment.get(fpNode).put(fpShape.getShapeResource(), false);
+									answered.add(fpNode);
 								}
+
+								for (RDFNode fpNode : results.listObjectsOfProperty(fpShape.getShapeResource(), RSH.No)
+										.toList()) {
+									if (debug)
+										System.out.println("!! :( Reference constraint violated: " + fpNode);
+
+									assignment.get(fpNode).put(fpShape.getShapeResource(), false);
+									answered.add(fpNode);
+								}
+
+								for (RDFNode fpNode : results
+										.listObjectsOfProperty(fpShape.getShapeResource(), RSH.Unknown).toList()) {
+									if (debug)
+										System.out.println("!! :( Reference constraint unknown: " + fpNode);
+
+									answered.add(fpNode);
+								}
+
+								fpV.stream().filter(x -> !answered.contains(x)).forEach(fpNode -> {
+									if (debug)
+										System.out.println("!! :) Success " + fpNode);
+
+									assignment.get(fpNode).put(fpShape.getShapeResource(), true);
+								});
 
 								if (debug)
 									System.out.println();
