@@ -294,7 +294,7 @@ public class ValidationEngine extends AbstractEngine implements ConfigurableEngi
 			visited.get(shape).add(focusNode);
 		
 
-		List<Shape> dependencies = shapesGraph.getShapeDependencies(shape);
+		List<Shape> dependencies = shapesGraph.getShapeDirectDependencies(shape);
 
 		if (dependencies.size() > 0) {
 			Iterator<RDFNode> valueNodes;
@@ -512,11 +512,8 @@ public class ValidationEngine extends AbstractEngine implements ConfigurableEngi
 						HashMap<RDFNode, HashMap<RDFNode, Boolean>> assignment = new HashMap<RDFNode, HashMap<RDFNode, Boolean>>();
 
 						List<Shape> fpShapes = getShapesGraph().getShapeDependencies(vs);
-						List<Resource> fpShapePaths = fpShapes.stream().filter(fpShape -> !fpShape.isNodeShape())
-								.map(fpShape -> fpShape.getPath()).distinct().collect(Collectors.toList());
 
 						getFpNodesStopWatch.start();
-
 						HashMap<Shape, HashSet<RDFNode>> fpNodes = this.getFixedPointNodes(vs, focusNodes);
 						getFpNodesStopWatch.stop();
 
@@ -537,6 +534,9 @@ public class ValidationEngine extends AbstractEngine implements ConfigurableEngi
 							});
 
 							for (Shape fpShape : fpShapes) {
+								if (!fpNodes.containsKey(fpShape))
+									continue;
+
 								List<RDFNode> fpV = fpNodes.get(fpShape).stream().filter(
 										fpNode -> !prevAssignment.get(fpNode).containsKey(fpShape.getShapeResource()))
 										.collect(Collectors.toList());
@@ -629,6 +629,9 @@ public class ValidationEngine extends AbstractEngine implements ConfigurableEngi
 								.filter(focusNode -> assignment.get(focusNode).containsKey(vs.getShapeResource())
 										&& !assignment.get(focusNode).get(vs.getShapeResource()))
 								.collect(Collectors.toList());
+
+						System.out.println("total: " + focusNodes.size());
+						System.out.println("violations: " + failedNodes.size());
 
 						if (failedNodes.size() > 0) {
 							setAssignment(assignment);
