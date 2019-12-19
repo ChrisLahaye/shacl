@@ -545,8 +545,6 @@ public class ValidationEngine extends AbstractEngine implements ConfigurableEngi
 
 								if (debug)
 									System.out.println("!! >> " + fpShape + " " + fpV);
-								else
-									System.out.println("!! >> " + fpShape + " " + fpV.size());
 
 								ValidationEngine newEngine = ValidationEngineFactory.get().create(getDataset(),
 										getShapesGraphURI(), getShapesGraph(), null);
@@ -629,9 +627,6 @@ public class ValidationEngine extends AbstractEngine implements ConfigurableEngi
 								.filter(focusNode -> assignment.get(focusNode).containsKey(vs.getShapeResource())
 										&& !assignment.get(focusNode).get(vs.getShapeResource()))
 								.collect(Collectors.toList());
-
-						System.out.println("total: " + focusNodes.size());
-						System.out.println("violations: " + failedNodes.size());
 
 						if (failedNodes.size() > 0) {
 							setAssignment(assignment);

@@ -94,7 +94,10 @@ public class HasShapeFunction extends AbstractFunction3 {
 	
 	public static NodeValue exec(Node focusNode, Node shapeNode, Node recursionIsError, Graph activeGraph, Dataset dataset) {
 		String shapeName = shapeNode.isBlank() ? shapeNode.getBlankNodeLabel() : shapeNode.getURI();
-		System.out.println("> HasShapeFuntion.exec(" + focusNode + ", " + shapeName +")");
+		boolean debug = System.getenv().containsKey("debug");
+		
+		if (debug)
+			System.out.println("> HasShapeFuntion.exec(" + focusNode + ", " + shapeName +")");
 
 		Boolean oldFlag = recursionIsErrorFlag.get();
 		if(JenaDatatypes.TRUE.asNode().equals(recursionIsError)) {
@@ -164,7 +167,8 @@ public class HasShapeFunction extends AbstractFunction3 {
 		finally {
 			recursionIsErrorFlag.set(oldFlag);
 
-			System.out.println("< HasShapeFuntion.exec(" + focusNode + ", " + shapeName +")");
+			if (debug)
+				System.out.println("< HasShapeFuntion.exec(" + focusNode + ", " + shapeName + ")");
 		}
 	}
 

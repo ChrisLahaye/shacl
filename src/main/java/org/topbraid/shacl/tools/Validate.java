@@ -21,8 +21,10 @@ import java.io.IOException;
 import java.io.PrintStream;
 import java.time.Duration;
 import java.time.Instant;
+import java.util.HashSet;
 
 import org.apache.jena.rdf.model.Model;
+import org.apache.jena.rdf.model.RDFNode;
 import org.apache.jena.rdf.model.Resource;
 import org.apache.jena.util.FileUtils;
 import org.apache.jena.vocabulary.RDF;
@@ -63,14 +65,19 @@ public class Validate extends AbstractTool {
 		}
 
 		if (measure)
-			System.out.printf("loading: %s ms\n", Duration.between(start, Instant.now()).toMillis());
+			System.out.printf("%d", Duration.between(start, Instant.now()).toMillis());
 
 		Resource report = ValidationUtil.validateModel(dataModel, shapesModel, true);
 
-		if (measure)
-			System.out.printf("validation results: %d\n",
-					report.getModel().listStatements(null, RDF.type, SH.ValidationResult).toList().size());
-		else
+		if (measure) {
+			HashSet<RDFNode> violations = new HashSet<RDFNode>();
+		
+			report.getModel().listSubjectsWithProperty(RDF.type, SH.ValidationResult).forEachRemaining(r -> {
+				violations.add(r.getProperty(SH.focusNode).getObject());
+			});
+			
+			System.out.printf(",%d\n", violations.size());
+		} else
 			report.getModel().write(System.out, FileUtils.langTurtle);
 		
 
