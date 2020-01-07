@@ -74,6 +74,10 @@ public class ShapesGraph {
 
 	private Map<Shape, List<Shape>> shapeDependencies = new HashMap<Shape, List<Shape>>();
 
+	private Map<Shape, List<Shape>> shapeDirectDependencies = new HashMap<Shape, List<Shape>>();
+
+	private Map<Shape, Boolean> shapeCyclic = new HashMap<Shape, Boolean>();
+
 	private Predicate<SHShape> shapeFilter;
 	
 	private Map<Node,Shape> shapesMap = new ConcurrentHashMap<>();
@@ -83,7 +87,15 @@ public class ShapesGraph {
 	private Map<Node,Map<Node,NodeExpression>> valuesMap = new ConcurrentHashMap<>();
 
 	public boolean isShapeCyclic(Shape shape) {
-		return isShapeCyclic(shape, shape, new HashSet<Shape>());
+		if (shapeCyclic.containsKey(shape)) {
+			return shapeCyclic.get(shape);
+		}
+
+		boolean value = isShapeCyclic(shape, shape, new HashSet<Shape>());
+
+		shapeCyclic.put(shape, value);
+
+		return value;
 	}
 
 	public boolean isShapeCyclic(Shape start, Shape shape, Set<Shape> visited) {
@@ -99,12 +111,20 @@ public class ShapesGraph {
 	}
 
 	public List<Shape> getShapeDependencies(Shape shape) {
+		if (shapeDependencies.containsKey(shape)) {
+			return shapeDependencies.get(shape);
+		}
+
 		HashSet<Shape> visited = new HashSet<Shape>();
 		Stack<Shape> stack = new Stack<Shape>();
 
 		getShapeDependencies(shape, visited, stack);
 
-		return new LinkedList<Shape>(stack);
+		List<Shape> value = new LinkedList<Shape>(stack);
+
+		shapeDependencies.put(shape, value);
+
+		return value;
 	}
 
 	public void getShapeDependencies(Shape shape, Set<Shape> visited, Stack<Shape> stack) {
@@ -206,8 +226,8 @@ public class ShapesGraph {
 	}
 	
 	public List<Shape> getShapeDirectDependencies(Shape shape) {
-		if (shapeDependencies.containsKey(shape)) {
-			return shapeDependencies.get(shape);
+		if (shapeDirectDependencies.containsKey(shape)) {
+			return shapeDirectDependencies.get(shape);
 		}
 
 		Set<Resource> candidates = new HashSet<>();
@@ -243,7 +263,7 @@ public class ShapesGraph {
 			}
 		}
 
-		shapeDependencies.put(shape, refs);
+		shapeDirectDependencies.put(shape, refs);
 
 		return refs;
 	}
