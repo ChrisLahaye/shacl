@@ -65,10 +65,19 @@ class PropertyConstraintExecutor implements ConstraintExecutor {
 															: RSH.Unknown),
 							focusNode);
 				} else {
-					engine.validateNodesAgainstShape(new ArrayList<RDFNode>(
-							valueNodes.stream().filter(valueNode -> !engine.hasShapeAssigned(propertyShape, valueNode))
-									.collect(Collectors.toList())),
-							propertyShape.asNode());
+					List<RDFNode> nextFocusNodes = valueNodes.stream()
+							.filter(valueNode -> !engine.hasAssignment()
+									|| engine.hasNegShapeAssigned(propertyShape, valueNode))
+							.filter(valueNode -> !RecursionGuard.start(valueNode.asNode(), propertyShape.asNode()))
+							.collect(Collectors.toList());
+
+					try {
+						engine.validateNodesAgainstShape(nextFocusNodes, propertyShape.asNode());
+					} finally {
+						for (RDFNode nextFocusNode : nextFocusNodes) {
+							RecursionGuard.end(nextFocusNode.asNode(), propertyShape.asNode());
+						}
+					}
 					engine.checkCanceled();
 				}
 			}
@@ -79,10 +88,19 @@ class PropertyConstraintExecutor implements ConstraintExecutor {
 					report.add(shape, engine.hasNegShapeAssigned(propertyShape, focusNode) ? RSH.No : (engine.hasShapeAssigned(propertyShape, focusNode) ? RSH.Yes : RSH.Unknown), focusNode);
 				}
 			} else {
-				List<RDFNode> valueNodes = focusNodes.stream()
-						.filter(valueNode -> !engine.hasShapeAssigned(propertyShape, valueNode))
+				List<RDFNode> nextFocusNodes = focusNodes.stream()
+						.filter(valueNode -> !engine.hasAssignment()
+								|| engine.hasNegShapeAssigned(propertyShape, valueNode))
+						.filter(valueNode -> !RecursionGuard.start(valueNode.asNode(), propertyShape.asNode()))
 						.collect(Collectors.toList());
-				engine.validateNodesAgainstShape(valueNodes, propertyShape.asNode());
+
+				try {
+					engine.validateNodesAgainstShape(nextFocusNodes, propertyShape.asNode());
+				} finally {
+					for (RDFNode nextFocusNode : nextFocusNodes) {
+						RecursionGuard.end(nextFocusNode.asNode(), propertyShape.asNode());
+					}
+				}
 			}
 		}
 	}
