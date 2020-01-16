@@ -64,6 +64,7 @@ import org.topbraid.shacl.engine.Shape;
 import org.topbraid.shacl.engine.ShapesGraph;
 import org.topbraid.shacl.engine.filters.ExcludeMetaShapesFilter;
 import org.topbraid.shacl.js.SHACLScriptEngineManager;
+import org.topbraid.shacl.model.SHConstraintComponent;
 import org.topbraid.shacl.targets.InstancesTarget;
 import org.topbraid.shacl.targets.Target;
 import org.topbraid.shacl.util.FailureLog;
@@ -526,6 +527,7 @@ public class ValidationEngine extends AbstractEngine implements ConfigurableEngi
 						});
 
 						assignStopWatch.start();
+						boolean skipNonShapeBasedConstraints = false;
 						fp: while (true) {
 							HashMap<RDFNode, HashMap<RDFNode, Boolean>> prevAssignment = new HashMap<RDFNode, HashMap<RDFNode, Boolean>>();
 
@@ -548,13 +550,29 @@ public class ValidationEngine extends AbstractEngine implements ConfigurableEngi
 
 								ValidationEngine newEngine = ValidationEngineFactory.get().create(getDataset(),
 										getShapesGraphURI(), getShapesGraph(), null);
-								newEngine.setAssignment(prevAssignment);
+								newEngine.setAssignment(assignment);
 								newEngine.setReporting(true);
 								if (ValidationEngine.getCurrent() != null) {
 									newEngine.setConfiguration(ValidationEngine.getCurrent().getConfiguration());
 								}
 
 								for (Constraint constraint : fpShape.getConstraints()) {
+									if (skipNonShapeBasedConstraints) {
+										SHConstraintComponent component = constraint.getComponent();
+
+										if (!component.equals(SH.AndConstraintComponent)
+												&& !component.equals(SH.NodeConstraintComponent)
+												&& !component.equals(SH.NotConstraintComponent)
+												&& !component.equals(SH.OrConstraintComponent)
+												&& !component.equals(SH.PropertyConstraintComponent)
+												&& !component.equals(SH.QualifiedMinCountConstraintComponent)
+												&& !component.equals(SH.QualifiedMaxCountConstraintComponent)
+												&& !component.equals(SH.XoneConstraintComponent)) {
+											continue;
+										}
+
+									}
+
 									newEngine.validateNodesAgainstConstraint(fpV, constraint);
 								}
 								newEngine.setReporting(false);
@@ -605,6 +623,8 @@ public class ValidationEngine extends AbstractEngine implements ConfigurableEngi
 								if (debug)
 									System.out.println();
 							}
+
+							skipNonShapeBasedConstraints = true;
 
 							if (debug) {
 								System.out.println("!! < Iteration");
