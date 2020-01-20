@@ -1,0 +1,58 @@
+@prefix dbo: <http://dbpedia.org/ontology/> .
+@prefix dbr: <http://dbpedia.org/resource/> .
+@prefix sh: <http://www.w3.org/ns/shacl#> .
+@prefix : <http://example.org/> .
+
+:ActorShape a sh:NodeShape;
+   sh:property :ActorShape_A ;
+   sh:property :ACtorShape_B ;
+   sh:property :ActorShape_C ;
+   sh:property :ActorShape_D ;
+   sh:property :ActorShape_E .
+
+:ActorShape_A a sh:PropertyShape ;
+  sh:path dbo:birthPlace;
+  sh:minCount 1 .
+:ActorShape_B a sh:PropertyShape ;
+  sh:path dbo:activeYearsStartYear ;
+  sh:minCount 1 .
+:ActorShape_C a sh:PropertyShape ;
+  sh:path dbo:occupation ;
+  sh:hasValue dbr:Actor .
+:ActorShape_D a sh:PropertyShape ;
+  sh:path dbo:imdbId ;
+  sh:minCount 1 .
+:ActorShape_E a sh:PropertyShape ;
+  sh:path [ sh:inversePath dbo:starring ];
+  sh:node :MovieShape .
+
+@prefix dbo: <http://dbpedia.org/ontology/>
+@prefix dbr: <http://dbpedia.org/resource/>
+@prefix sh: <http://www.w3.org/ns/shacl#>
+@prefix : <http://example.org/>
+
+:MovieShape a sh:NodeShape ;
+   sh:targetClass dbo:Film ;
+   sh:property :MovieShape_A ;
+   sh:property :MovieShape_B ;
+   sh:property :MovieShape_C ;
+   sh:property :MovieShape_D ;
+   sh:property :MovieShape_E .
+
+:MovieShape_A a sh:PropertyShape ;
+  sh:path dbo:writer;
+  sh:minCount 1 .
+:MovieShape_B a sh:PropertyShape ;
+  sh:path dbo:musicComposer;
+  sh:minCount 1 .
+:MovieShape_C a sh:PropertyShape ;
+  sh:path dbo:director;
+  sh:minCount 1 .
+:MovieShape_D a sh:PropertyShape ;
+  sh:path dbo:imdbId;
+  sh:minCount 1 ;
+  sh:maxCount 1 .
+:MovieShape_E a sh:PropertyShape ;
+  sh:path dbo:starring ;
+  sh:qualifiedValueShape :ActorShape ;
+  sh:qualifiedMinCount 1 .
